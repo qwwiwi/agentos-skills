@@ -11,7 +11,7 @@ description: >
   NOT for: simple CRUD tasks, non-EdTech projects, single-framework questions without product context.
 ---
 
-# Senior Brainstorm v5
+# Senior Brainstorm v6
 
 ## Scope
 
@@ -114,7 +114,7 @@ to security and scalability.
 
 For **greenfield** projects without legacy stack, start with opinionated defaults rather than open-ended stack selection. This reduces decision fatigue and produces consistent, maintainable systems.
 
-**Two default tracks — choose by SEO/SSR requirement:**
+**Three default tracks — choose by team strength, SEO/SSR requirement, and AI/data-heaviness:**
 
 ### Track A: YY Default (non-SSR projects)
 
@@ -140,18 +140,34 @@ Use for course platforms, marketing sites, content-heavy public pages.
 - DB: **Postgres** (managed) + Redis for cache/queues
 - Auth: **Clerk / Auth0 / NextAuth** depending on enterprise needs
 
+### Track C: Python + Supabase (AI/bots/data)
+
+Use for Telegram bots with admin, AI/RAG projects, data-heavy backends, teams stronger in Python.
+
+- Backend: **Python 3.12 + FastAPI 0.115+** — see `references/stacks-python-supabase.md`
+- Bot framework: **aiogram 3.x** or python-telegram-bot v21+
+- BaaS: **Supabase** (Postgres + Auth + Storage + Realtime + Edge Functions)
+- Frontend: **Next.js 16** (App Router) или **Vite + React**
+- ORM: **SQLAlchemy 2.x async** (или SQLModel) с **asyncpg**
+
+For data layer choice across all tracks (Supabase vs Yandex Cloud vs self-hosted), see `references/stacks-data-layer.md`.
+
 ### Choosing Between Tracks
 
 | Ask | Track |
 |---|---|
 | Does public content need to be indexed by Google? | B |
 | Is there a course catalog / blog / marketing page? | B |
-| Is it an internal tool or authenticated-only product? | **A** |
-| Is it a mobile app? | **A** (Expo) |
-| Is it a desktop app? | **A** (Electron) |
-| Is it a bot control panel or agent UI? | **A** |
+| Telegram bot + admin panel? | **C** |
+| AI/RAG with LLM integration? | **C** |
+| Data/ML processing in backend? | **C** |
+| Internal authenticated-only tool? | **A** |
+| Mobile app (Expo)? | **A** |
+| Desktop app (Electron)? | **A** |
+| Bot control panel or agent UI (no Python ML)? | **A** |
+| 152-ФЗ (RU data residency) required? | **C** + Yandex Cloud (see `stacks-data-layer.md`) |
 
-**Scale defaults for both tracks:** target 10K users initially. No microservices, no Kubernetes before 10K. Managed DB, managed storage, single service.
+**Scale defaults for all tracks:** target 10K users initially. No microservices, no Kubernetes before 10K. Managed DB, managed storage, single service.
 
 ## AI/LLM Integration Architecture
 
@@ -241,9 +257,11 @@ Detailed reference for each domain. Load only the relevant file:
 
 | Domain | File | When to read |
 |--------|------|-------------|
-| YY Default | `references/stacks-yy-default.md` | Opinionated default for non-SSR projects (Bun+Hono+Vite+Expo). Source: Сухарев, https://t.me/sukharev_ii |
-| Frontend | `references/stacks-frontend.md` | Stack selection, component choices, data fetching, mobile strategy |
-| Backend | `references/stacks-backend.md` | API design, auth, payments, domain model, multi-tenancy, ORM choice |
+| Track A (YY) | `references/stacks-yy-default.md` | Opinionated default for non-SSR projects (Bun+Hono+Vite+Expo). Source: Сухарев, https://t.me/sukharev_ii |
+| Track B (Frontend) | `references/stacks-frontend.md` | Next.js SSR/SEO track — stack selection, components, data fetching, mobile strategy |
+| Track B (Backend) | `references/stacks-backend.md` | Node+Fastify track — API design, auth, payments, domain model, multi-tenancy, ORM choice |
+| Track C (Python+Supabase) | `references/stacks-python-supabase.md` | FastAPI + aiogram + Supabase track — bots, AI/RAG, data-heavy backends, 152-ФЗ via Yandex |
+| Data Layer | `references/stacks-data-layer.md` | Supabase vs Yandex Cloud vs self-hosted Postgres — pricing, lock-in, residency, edge vs containers |
 | DevOps | `references/devops.md` | Deployment, CI/CD, observability, environments, backup/DR |
 | Security | `references/security.md` | Threat modeling, auth hardening, encryption, compliance, incident response |
 | Testing | `references/testing.md` | Test strategy, tools, EdTech test matrix, CI patterns, failure testing |

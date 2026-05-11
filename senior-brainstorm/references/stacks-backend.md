@@ -6,7 +6,11 @@ confidence: high
 
 # Backend
 
-> **Before reading:** if the project is **greenfield non-SSR** (SPA, mobile, desktop, internal API, bot backend), prefer the **YY default stack** in `stacks-yy-default.md` (Bun + Hono). This document covers the **EdTech SaaS / Node track** (Fastify 5 + Node.js 22) — use it when you need mature Node ecosystem (Stripe webhooks, BullMQ, Passport integrations), enterprise auth (Clerk/Auth0), or SSR framework compatibility (Next.js API routes). Credit for YY stack: Сухарев, https://t.me/sukharev_ii.
+> **Three tracks. Pick by team strength and project type:**
+>
+> - **Track A — Bun + Hono** — `stacks-yy-default.md`. Default для non-SSR (SPA, mobile, desktop, internal API, bot backend). Credit: Сухарев, https://t.me/sukharev_ii
+> - **Track B — Node + Fastify** — this document. Для EdTech SaaS, Stripe ecosystem, enterprise auth, Next.js API routes
+> - **Track C — Python + FastAPI** — `stacks-python-supabase.md`. Для Telegram-ботов, AI/ML, data-heavy сценариев, команд сильных в Python
 
 ## When to use this (Node + Fastify) track
 
