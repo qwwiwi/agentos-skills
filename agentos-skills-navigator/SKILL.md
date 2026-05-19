@@ -52,6 +52,7 @@ description: Navigate the AgentOS skills repository – find templates, lessons,
 | «куда что устанавливается» | `references/install-paths.md` |
 | «у меня ошибка Y» | `references/troubleshooting.md` |
 | «какие репо связаны с этим» | `docs/repo-registry.md` |
+| «хочу создать новый skill / расширить агента способностью» | секция `README.md#создание-собственных-skill-ов` + [skill-creator](https://github.com/anthropics/skills/tree/main/skills/skill-creator) + [skills.sh](https://www.skills.sh/) каталог |
 
 ### Шаг 2 – открыть нужный reference
 

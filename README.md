@@ -4,6 +4,8 @@
 
 Этот репо – точка входа. Внутри: архитектура роя, шаблоны CLAUDE.md, боевой урок создания трёх агентов, навигационный skill, и три специализированных skill-а из боевой практики.
 
+**Идея простая.** Ученик кидает своему Claude Code агенту один промпт «подними мне команду из трёх агентов» + ссылку на этот репо. Дальше агент сам читает `AGENTIC-SWARM.md`, идёт в `lessons/lesson-3-agents-with-gbrain/`, подтягивает шаблоны из `templates/`, подключается к соседним публичным репо по карте `architecture/` – и через ~90 минут у ученика рабочий рой. Один промпт. Один репо. Никаких догадок.
+
 ## Что такое агентский рой
 
 Рой – команда из трёх Claude Code агентов, которые живут на одном VPS, делят общую память (`gbrain`) и общий inbound-канал (Telegram). Каждый агент – отдельный процесс Claude Code CLI с собственным workspace, собственным Telegram-ботом и собственным Bearer-токеном к общему мозгу. Между собой агенты разговаривают не через Telegram, а через shared event bus (`gbrain-swarm`) и shared semantic store (`gbrain-memory` + `gbrain-recall`).
@@ -110,6 +112,44 @@ cp -r agentos-skills/agentos-skills-navigator  ~/.claude/skills/
 - `senior-brainstorm` – обязателен для Homer (архитектурные решения, выбор стека, threat modeling).
 - `telegram-bot-builder` – обязателен для Homer и Marketer, если рой собирает Telegram-ботов для конечных пользователей (не только inbound от оператора).
 - `agentos-skills-navigator` – обязателен для всех агентов: помогает ученику и самим агентам ориентироваться в этом репо.
+
+## Создание собственных skill-ов
+
+Если рою нужен новый skill (специфичный workflow, кастомная методика, домен-знание для одного из агентов) – собираем его не вручную, а через стандартный workflow.
+
+### skill-creator – фабрика новых skill-ов
+
+[`skill-creator`](https://github.com/anthropics/skills/tree/main/skills/skill-creator) – официальный skill от Anthropic для создания других skill-ов. Загружает в контекст методологию: определяем триггеры, пишем SKILL.md frontmatter, бьём содержимое на progressive disclosure (метаданные → SKILL.md → bundled resources), готовим test cases, прогоняем eval, итерируем. Это не «напиши markdown руками» – это полноценный workflow с проверкой качества triggering и output-а.
+
+Установка:
+
+```bash
+git clone https://github.com/anthropics/skills.git /tmp/anthropic-skills
+cp -r /tmp/anthropic-skills/skills/skill-creator ~/.claude/skills/
+# Перезапусти Claude Code
+```
+
+Использование:
+
+```
+/skill-creator
+> «Создай skill для <твой workflow>. Триггеры: <фразы>. Выход: <формат>.»
+```
+
+Skill-creator проведёт через 4 шага: capture intent → interview → write SKILL.md → run evals.
+
+### skills.sh – каталог готовых skill-ов
+
+[`skills.sh`](https://www.skills.sh/) – каталог skill-ов от сообщества (включая [obra/superpowers](https://github.com/obra/superpowers) – тот же автор). Перед тем как писать новый skill через skill-creator – **проверь catalog**. Велик шанс, что нужная функциональность уже упакована и протестирована.
+
+Принцип: **search-first**. Поток такой:
+
+1. Нужна новая способность для агента?
+2. Загляни на [skills.sh](https://www.skills.sh/) – есть готовый?
+3. Если да – установи через `claude skill add <url>` или `/plugin install`.
+4. Если нет – запусти `skill-creator` и сделай свой. Когда отполируешь – опубликуй обратно в catalog, чтобы кто-то ещё переиспользовал.
+
+Так рой накапливает collective knowledge без дублирования.
 
 ## Связанные публичные репо
 
