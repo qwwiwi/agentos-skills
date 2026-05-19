@@ -1,12 +1,14 @@
 # Lesson 3: Три агента с общим gbrain
 
-Боевой урок. За ~90 минут поднимаешь команду из трёх AI-агентов (coder, marketer, sales) и подключаешь их к общей памяти (gbrain – Second Brain поверх Postgres+pgvector). После урока агенты могут отправлять друг другу задачи и читать общую базу решений.
+> **Сначала прочитай** [`AGENTIC-SWARM.md`](../../AGENTIC-SWARM.md) в корне репо – это canonical teaching brief: зачем нужен рой, как агенты делят память и работу. Этот урок – практическая реализация описанной там модели.
+
+Боевой урок. За ~90 минут поднимаешь команду из трёх AI-агентов (Homer – coder, Edith – Second Brain, Marketer – контент / growth) и подключаешь их к общей памяти (gbrain – Second Brain поверх Postgres+pgvector). После урока агенты могут отправлять друг другу задачи и читать общую базу решений.
 
 ## Цель
 
 Получить рабочий мини-офис из трёх Claude Code агентов, которые:
 
-- работают каждый в своём workspace со своим CLAUDE.md (coder / marketer / sales)
+- работают каждый в своём workspace со своим CLAUDE.md (Homer / Edith / Marketer)
 - ходят в общий gbrain через MCP (4 сервера: memory, recall, swarm, tasks)
 - умеют `swarm.notify` друг другу (inter-agent сообщения)
 - видят общую базу решений через `recall` (полнотекст + семантика)
@@ -49,9 +51,9 @@
 | Шаг | Минут |
 |---|---:|
 | 01-02. Подготовка | 10 |
-| 03. Coder | 10 |
-| 04. Marketer | 10 |
-| 05. Sales | 10 |
+| 03. Homer (coder) | 10 |
+| 04. Edith (Second Brain) | 10 |
+| 05. Marketer (контент) | 10 |
 | 06. gbrain self-host | 30 |
 | 07. Подключение MCP | 10 |
 | 08. Тест координации | 10 |
@@ -61,9 +63,9 @@
 
 1. [01-overview.md](./01-overview.md) – зачем три агента, как они взаимодействуют, архитектура на одном слайде
 2. [02-prerequisites.md](./02-prerequisites.md) – что установить, какие аккаунты, какие ресурсы
-3. [03-create-coder.md](./03-create-coder.md) – создаём coder-агента (workspace + CLAUDE.md)
-4. [04-create-marketer.md](./04-create-marketer.md) – создаём marketer-агента + Telegram-бот
-5. [05-create-sales.md](./05-create-sales.md) – создаём sales-агента (CRM-фокус)
+3. [03-create-coder.md](./03-create-coder.md) – создаём Homer (workspace + CLAUDE.md)
+4. [04-create-edith.md](./04-create-edith.md) – создаём Edith (Second Brain – raw / wiki / output)
+5. [05-create-marketer.md](./05-create-marketer.md) – создаём Marketer (контент, lead-gen, public presence)
 6. [06-setup-gbrain.md](./06-setup-gbrain.md) – self-host gbrain на VPS, токены
 7. [07-connect-agents.md](./07-connect-agents.md) – подключаем все три workspace к gbrain
 8. [08-test-coordination.md](./08-test-coordination.md) – smoke-тест swarm.notify + recall
@@ -73,6 +75,6 @@
 
 - **Подключи свой Telegram-бот к каждому агенту** – используй `dashi-plugin-claude-code` (Telegram bridge). Так агенты смогут говорить с тобой в чате, а не только в терминале
 - **Настрой кастомные триггеры** – пропиши в CLAUDE.md специфичные для тебя слова-команды («сделай лендинг», «проверь воронку»)
-- **Добавь четвёртого агента** – повтори шаги 03-05, например для контент-направления или для мониторинга
+- **Добавь четвёртого агента** – повтори шаги 03-05, например для sales или для мониторинга (опциональный 4-й агент по swarm-doc)
 - **Включи Telegram-инбокс gbrain** – собирай чаты, мемы, заметки в общую память (см. `public-gbrain-agentos` Path B)
 - **Поделись своими CLAUDE.md** – если получилось что-то интересное, открой PR в `agentos-skills/templates/claude-md/`

@@ -120,6 +120,14 @@ TOV – Tone of Voice, голос твоего бренда. Два пути:
 
 Если сделаешь свой английский перевод и хочешь поделиться – открой PR, добавим в репозиторий как `lessons/lesson-3-agents-with-gbrain/en/`.
 
+## 11. Зачем Superpowers если у меня уже есть наши skill-ы?
+
+Skill-ы из этого репо специфичны для AgentOS (CLAUDE.md шаблоны, навигация по архитектуре, генерация Telegram-ботов). Superpowers — это базовая методология: как Claude думает о задаче, как планирует, как тестирует, как делает review.
+
+Без Superpowers агент знает что строить (из наших skill-ов), но не знает как строить дисциплинированно. Это критично для production-кода и dual-report rule в рое.
+
+Установи оба слоя: Superpowers (методология) + agentos-skills (специфика).
+
 ---
 
 Не нашёл свой вопрос? Открой issue – https://github.com/qwwiwi/agentos-skills/issues

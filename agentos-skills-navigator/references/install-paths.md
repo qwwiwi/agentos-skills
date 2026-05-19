@@ -11,6 +11,17 @@
 | `dashi-plugin-claude-code` | Plugin для Claude Code (Telegram bridge) | Локально на машине ученика или на VPS, рядом с агентом |
 | `qwwiwi/agentos-skills` | Этот репо со скиллами и шаблонами | Любая удобная директория для git clone |
 
+## Superpowers — mandatory для каждого агента
+
+Перед использованием любого агента из этого репо, установи Superpowers:
+
+`/plugin install superpowers@claude-plugins-official`
+
+Или через obra:
+`/plugin marketplace add obra/superpowers-marketplace && /plugin install superpowers@superpowers-marketplace`
+
+Все skill-ы из этого репо (senior-brainstorm, telegram-bot-builder, agentos-skills-navigator) предполагают, что Superpowers уже установлен и активен.
+
 ## 1. public-architecture-claude-code (workspace архитектура)
 
 **Что внутри:** install.sh, шаблон workspace, hooks для Claude Code.

@@ -2,40 +2,50 @@
 
 ## Зачем нужны три агента
 
-Один Claude Code – универсальный помощник. Но у него нет специализации, у него нет роли. Каждый раз ты объясняешь контекст заново: «я сейчас пишу код», «а теперь делаем пост», «а теперь смотрим продажи».
+Один Claude Code – универсальный помощник. Но у него нет специализации, у него нет роли. Каждый раз ты объясняешь контекст заново: «я сейчас пишу код», «а теперь принимаем ссылку в Second Brain», «а теперь делаем пост».
 
-Три агента решают это разделением ответственности:
+Три агента решают это разделением ответственности. По правилу «build / remember / grow» – минимальная полезная команда для одного оператора.
 
-### Coder (рабочее имя в уроке – «Хомер»)
+### Homer – build (coder / architect / coordinator)
 
 - Пишет код, чинит баги, делает рефакторинг
 - Знает твой стек (TypeScript / Python / Go – что используешь)
 - Соблюдает твои правила (форматирование, тесты, code review)
-- Не отвлекается на маркетинг – не его роль
+- Владеет общей инфраструктурой: gateway, gbrain-конфиг, deploys
+- Координирует двух других агентов (роль tech lead)
+- Workspace: `~/.claude-lab/homer/.claude/`
 
-### Marketer (рабочее имя – «Маркет»)
+### Edith – remember (Second Brain / inbox / ingest)
 
-- Пишет посты для соц.сетей, делает контент-планы
-- Знает твой tone of voice
+- Ловит каждую ссылку / voice / файл / сниппет, который кидаешь команде
+- Pipeline: **raw → wiki → output** (метод Karpathy Second Brain)
+- Имеет собственное локальное дерево знаний помимо gbrain:
+  - `raw/` – immutable inbox (YAML-frontmatter markdown)
+  - `wiki/` – LLM-compiled страницы (sources, entities, concepts, synthesis)
+  - `output/` – генерируемые артефакты по запросу
+- Параллельно дублирует summary всех ingest'ов в gbrain, чтобы остальные агенты могли recall'ить
+- Workspace: `~/.claude-lab/edith/.claude/`
+
+### Marketer – grow (контент / lead-gen / public presence)
+
+- Владеет публичным Instagram-присутствием: пишет reels, hooks, captions, scripts
+- Скрапит референсные аккаунты (например healthy-breakfast niche 100k+) через Apify / HikerAPI / Cobalt / Whisper
+- Держит TOV (tone of voice) canonical snapshot и отказывается публиковать без него
 - Готовит сценарии для видео, презентации, лендинги
 - Не пишет production-код – не его роль
-
-### Sales (рабочее имя – «Клозер»)
-
-- Ведёт воронку, отвечает на вопросы лидов, делает follow-up
-- Знает твой продукт и цены
-- Логирует диалоги с клиентами
-- Не пишет архитектуру – не его роль
+- Workspace: `~/.claude-lab/marketer/.claude/`
 
 Каждый агент в своём workspace, со своим CLAUDE.md, своим набором скиллов, своим Telegram-ботом. Не путаются контексты.
 
+> Добавить четвёртого агента (например `sales`) – ~5 минут: создать workspace из шаблона, минтнуть Telegram-бот, выпустить gbrain-токен, добавить запись в gateway-конфиг, перезапустить gateway. Система рассчитана на расширение через добавление, а не через переписывание.
+
 ## Почему shared gbrain
 
-Без общей памяти агенты – острова. Coder написал решение по архитектуре, но marketer его не видит. Marketer запустил рекламу, но sales не знает про новый поток лидов. Каждый раз ты сам становишься «шиной данных» – пересказываешь одному что сделал другой.
+Без общей памяти агенты – острова. Homer написал решение по архитектуре, но Marketer его не видит. Marketer запустил рекламу, а Edith не знает про новый поток ссылок-источников. Каждый раз ты сам становишься «шиной данных» – пересказываешь одному что сделал другой.
 
-gbrain (Second Brain) решает это:
+gbrain (Second Brain команды) решает это:
 
-- **memory** – хранит decisions, runbooks, error-patterns в markdown vault
+- **memory** – хранит decisions, runbooks, error-patterns, external notes в markdown vault
 - **recall** – семантический поиск по vault (FastEmbed multilingual-e5-large) + полнотекст
 - **swarm** – инбокс между агентами (`notify`, `list_my_pending`, `ack`)
 - **tasks** – kanban-доска задач (`task_create`, `task_list`, `task_start`)
@@ -48,11 +58,11 @@ gbrain (Second Brain) решает это:
 
 ### 1. swarm.notify (inter-agent сообщения)
 
-Coder заканчивает фичу и сообщает marketer:
+Homer заканчивает фичу и сообщает Marketer:
 
 ```text
 swarm.notify(
-  to_agent="kael",
+  to_agent="marketer",
   payload={
     "title": "Лендинг готов к публикации",
     "body": "URL: example.com/feature-x. Нужен пост в Telegram"
@@ -63,7 +73,7 @@ swarm.notify(
 Marketer при следующем запуске видит:
 
 ```text
-list_my_pending(agent="kael")
+list_my_pending(agent="marketer")
 → [{ from: "homer", title: "Лендинг готов...", ... }]
 ```
 
@@ -71,28 +81,28 @@ list_my_pending(agent="kael")
 
 ### 2. recall (общая база знаний)
 
-Sales хочет понять политику возвратов, написанную coder'ом полгода назад:
+Marketer хочет понять, что Edith сохранила про конкурентов:
 
 ```text
-recall(query="политика возвратов VIP-клиенты", limit=5)
-→ возвращает 5 заметок из shared vault с релевантными решениями
+recall(query="конкуренты healthy breakfast", limit=5)
+→ возвращает 5 заметок из shared vault с релевантными ссылками
 ```
 
 Не нужно помнить, кто и когда это записал – recall находит.
 
 ### 3. tasks (kanban)
 
-Coder создаёт задачу для sales:
+Homer создаёт задачу для Marketer:
 
 ```text
 task_create(
-  title="Связаться с клиентом X по апсейлу",
-  assignee="closer",
+  title="Подготовь captions для нового видео",
+  assignee="marketer",
   body="..."
 )
 ```
 
-Sales видит свои задачи: `task_list(assignee="closer", status="new")`.
+Marketer видит свои задачи: `task_list(assignee="marketer", status="new")`.
 
 ## Архитектура на одном слайде
 
@@ -116,8 +126,8 @@ Sales видит свои задачи: `task_list(assignee="closer", status="ne
                 ┌──────────────┼──────────────┐
                 │              │              │
          ┌──────▼─────┐ ┌──────▼─────┐ ┌──────▼─────┐
-         │  Coder     │ │  Marketer  │ │  Sales     │
-         │  (homer)   │ │  (kael)    │ │  (closer) │
+         │   Homer    │ │   Edith    │ │  Marketer  │
+         │  (build)   │ │ (remember) │ │   (grow)   │
          │            │ │            │ │            │
          │  Claude    │ │  Claude    │ │  Claude    │
          │  Code      │ │  Code      │ │  Code      │

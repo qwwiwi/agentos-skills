@@ -21,7 +21,7 @@
 | `{{владелец}}` | Именительный падеж владельца | «принц», «босс», «вождь» |
 | `{{Владелец}}` | То же с заглавной буквы (начало предложения) | «Принц», «Босс», «Вождь» |
 | `{{my_bot}}` | Username Telegram-бота этого агента | `myagent_bot`, `coderbot_team`, `marketingaibot` |
-| `{{my_name}}` | Имя агента в swarm / tasks (обычно совпадает с `{{agent_name}}`) | `homer`, `kael` |
+| `{{my_name}}` | Имя агента в swarm / tasks (обычно совпадает с `{{agent_name}}`) | `homer`, `edith`, `marketer` |
 | `{{tov_source_path}}` | Путь к источнику Tone-of-Voice | `gbrain-memory:tov/main`, `core/TONE_OF_VOICE.md` |
 | `{{coder}}` | ID агента-кодера в команде | `homer`, `dev-agent` |
 | `{{secondbrain}}` | ID агента-Second Brain | `librarian`, `archive` |

@@ -11,6 +11,7 @@ description: Navigate the AgentOS skills repository – find templates, lessons,
 
 Карта папок верхнего уровня:
 
+- `AGENTIC-SWARM.md` – **canonical teaching brief** репо: зачем нужен рой, какие роли, как делится память. Открывай первым, если ученик спрашивает «что вообще такое AgentOS».
 - `senior-brainstorm/` – архитектурный скилл для образовательных SaaS.
 - `telegram-bot-builder/` – скилл по сборке production telegram-ботов.
 - `agentos-skills-navigator/` – этот скилл, навигация по репо.
@@ -71,8 +72,9 @@ description: Navigate the AgentOS skills repository – find templates, lessons,
 | Запрос ученика | Куда вести |
 |---|---|
 | «как создать coder-агента» | `templates/claude-md/coder.md` + `lessons/lesson-3-agents-with-gbrain/03-create-coder.md` |
-| «нужен маркетолог» | `templates/claude-md/marketer.md` + `lessons/lesson-3-agents-with-gbrain/04-create-marketer.md` |
-| «нужен sales / продажник» | `templates/claude-md/sales.md` + `lessons/lesson-3-agents-with-gbrain/05-create-sales.md` |
+| «нужен Second Brain / inbox-агент» | `templates/claude-md/inbox-monitoring.md` + `lessons/lesson-3-agents-with-gbrain/04-create-edith.md` |
+| «нужен маркетолог» | `templates/claude-md/marketer.md` + `lessons/lesson-3-agents-with-gbrain/05-create-marketer.md` |
+| «нужен sales / продажник» | `templates/claude-md/sales.md` (опциональный 4-й агент, отдельного урока нет) |
 | «как подключить gbrain» | `architecture/02-gbrain-shared-memory.md` + `lessons/lesson-3-agents-with-gbrain/06-setup-gbrain.md` и `07-connect-agents.md` |
 | «что такое CLAUDE.md» | `architecture/04-claude-md-guide.md` + `templates/claude-md/README.md` |
 | «как сделать telegram-бота для агента» | `architecture/03-telegram-bridge.md` |

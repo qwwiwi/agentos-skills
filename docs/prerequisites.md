@@ -9,6 +9,28 @@
 – **Disk**: 5 GB свободно для workspace'ов всех агентов плюс память. На VPS под gbrain – 20 GB (Postgres + pgvector + логи + бэкапы)
 – **Сеть**: стабильный канал, в идеале без NAT, иначе Telegram webhook не пробьётся. Если NAT неизбежен – используй reverse SSH tunnel или Tailscale
 
+## Обязательный skill: Superpowers
+
+Каждый агент в рою использует **Superpowers** — пакет skill-ов от Anthropic + obra, реализующий инженерную методологию: spec → план → TDD → review → verification.
+
+Без Superpowers агенты пишут код «как получится», нарушают checkpoint-ы, и пропускают review. С Superpowers — каждое действие проходит через skill-checklist'ы, загруженные в каждый prompt.
+
+Установка для каждого агента (после создания workspace'а):
+
+```bash
+# В сессии каждого нового агента
+/plugin install superpowers@claude-plugins-official
+```
+
+Альтернативно, для более свежей версии — `obra/superpowers-marketplace`:
+
+```bash
+/plugin marketplace add obra/superpowers-marketplace
+/plugin install superpowers@superpowers-marketplace
+```
+
+Полная документация: https://github.com/obra/superpowers
+
 ## Инструменты
 
 ### claude (Claude Code CLI)

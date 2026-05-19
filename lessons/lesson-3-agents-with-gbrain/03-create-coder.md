@@ -1,6 +1,6 @@
-# 03. Создаём coder-агента (Хомер)
+# 03. Создаём coder-агента (Homer)
 
-Первый агент – исполнитель кода. Для удобства в уроке зовём его «Хомер» (`homer`). Имя можешь поменять на любое, что нравится – в реальной работе важна роль, а не имя.
+Первый агент – Homer, coder / architect / coordinator. Он же выполняет роль tech lead команды: координирует Edith (Second Brain) и Marketer (контент), владеет инфраструктурой gateway / gbrain / deploys.
 
 ## Что делаем
 
@@ -76,7 +76,7 @@ head -20 ~/.claude-lab/homer/.claude/CLAUDE.md
 В шаблоне `coder.md` есть 11 плейсхолдеров в фигурных скобках. Полный список:
 
 ```
-{{Имя агента}}            – имя на русском (Хомер)
+{{Имя агента}}            – имя на русском (Homer)
 {{my_name}}               – имя на английском (homer)
 {{Владелец}}              – Имя_владельца с большой
 {{владелец}}              – Имя_владельца с маленькой
@@ -102,7 +102,7 @@ OWNER_INS="Дашей"         # творительный
 OWNER_ADDR="босс"         # как агент тебя зовёт
 GBRAIN="your-gbrain.example.com"
 
-sed -i.bak "s|{{Имя агента}}|Хомер|g; s|{{my_name}}|homer|g" CLAUDE.md
+sed -i.bak "s|{{Имя агента}}|Homer|g; s|{{my_name}}|homer|g" CLAUDE.md
 sed -i.bak "s|{{Владелец}}|${OWNER_NAME}|g; s|{{владелец}}|${OWNER_NAME,,}|g" CLAUDE.md 2>/dev/null || \
   sed -i.bak "s|{{Владелец}}|${OWNER_NAME}|g; s|{{владелец}}|${OWNER_NAME}|g" CLAUDE.md
 sed -i.bak "s|{{владельца}}|${OWNER_GEN}|g" CLAUDE.md
@@ -139,7 +139,7 @@ owner = {
     "обращение к владельцу": "босс",
 }
 agent = {
-    "Имя агента": "Хомер",
+    "Имя агента": "Homer",
     "my_name": "homer",
     "coordinator": "homer",
     "gbrain_host": "your-gbrain.example.com",
@@ -187,11 +187,11 @@ claude
 Ожидаемый ответ (примерно):
 
 ```text
-Я Хомер, coder-агент. Пишу код, чиню баги, делаю рефакторинг.
+Я Homer, coder-агент. Пишу код, чиню баги, делаю рефакторинг.
 Отвечаю на русском.
 ```
 
-Если ответ соответствует – Хомер готов. Выходи из Claude Code (Ctrl+D или `/exit`).
+Если ответ соответствует – Homer готов. Выходи из Claude Code (Ctrl+D или `/exit`).
 
 ## Troubleshooting
 
@@ -228,4 +228,4 @@ pwd
 
 ## Готово
 
-Хомер стоит. Переходи к [04-create-marketer.md](./04-create-marketer.md) – заведём marketer-агента.
+Homer стоит. Переходи к [04-create-edith.md](./04-create-edith.md) – заведём Edith, агента Second Brain.

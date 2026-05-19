@@ -1,140 +1,141 @@
 # AgentOS Skills
 
-Skills-пак для Claude Code, используемый в интенсиве **AgentOS** ([Edge Lab](https://edgelab.su)).
+> Публичные ресурсы для построения собственного агентского роя из Claude Code агентов. Используется в интенсиве **AgentOS** ([Edge Lab](https://edgelab.su)).
 
-После установки Claude Code получает три специализированных навыка:
+Этот репо – точка входа. Внутри: архитектура роя, шаблоны CLAUDE.md, боевой урок создания трёх агентов, навигационный skill, и три специализированных skill-а из боевой практики.
 
-- [**senior-brainstorm**](./senior-brainstorm/) – senior full-stack архитектор для EdTech-платформ. Активируется на вопросах архитектуры, выбора стека, AI/LLM интеграции.
-- [**telegram-bot-builder**](./telegram-bot-builder/) – генератор Telegram-ботов на Python (aiogram 3 / python-telegram-bot v21) или TypeScript (grammY). Поддерживает SQLite, Supabase, Postgres, Yandex Cloud, Redis.
-- [**agentos-skills-navigator**](./agentos-skills-navigator/) – навигация по этому репозиторию: помогает ученику найти нужный template, lesson или architecture-конспект под свой вопрос.
+## Что такое агентский рой
+
+Рой – команда из трёх Claude Code агентов, которые живут на одном VPS, делят общую память (`gbrain`) и общий inbound-канал (Telegram). Каждый агент – отдельный процесс Claude Code CLI с собственным workspace, собственным Telegram-ботом и собственным Bearer-токеном к общему мозгу. Между собой агенты разговаривают не через Telegram, а через shared event bus (`gbrain-swarm`) и shared semantic store (`gbrain-memory` + `gbrain-recall`).
+
+Это не Kubernetes-кластер и не «AutoGen на 50 ролей». Это минимально полезная команда для одного оператора: build, remember, grow. Три роли, одна машина, boring infrastructure (systemd + Postgres + Python).
+
+```
+        Telegram (один бот на агента)
+                  │
+                  ▼
+        Telegram Gateway (systemd, :9090)
+                  │
+       ┌──────────┼──────────┐
+       ▼          ▼          ▼
+    Homer      Edith     Marketer
+   (coder)   (brain)    (growth)
+       │          │          │
+       └──────────┼──────────┘
+                  ▼
+         gbrain (Postgres + pgvector)
+        ports 8766 / 8767 / 8768
+```
+
+Три агента:
+
+- **Homer** – coder/architect/coordinator. Пишет код, проводит ревью, владеет инфраструктурой (gateway, gbrain, deploys).
+- **Edith** – Second Brain. Ловит каждую ссылку/voice/файл от оператора, гонит через pipeline `raw → wiki → output`, дублирует summary в gbrain.
+- **Marketer** – content/lead-gen. Reels, hooks, captions, TOV-стандарт, скрейп референсов.
+
+**Полный teaching brief: [AGENTIC-SWARM.md](./AGENTIC-SWARM.md)** – 335 строк архитектуры с ASCII-диаграммами, таблицами, разбором каждого компонента (workspace anatomy, memory layers, MCP-серверы, auth model, gateway streaming, inter-agent communication, security zones, end-to-end turn). Это главный документ репо – читать первым.
+
+## Что внутри репо
+
+- **`AGENTIC-SWARM.md`** – полная архитектура агентского роя. Главный документ.
+- **`templates/claude-md/`** – 4 шаблона CLAUDE.md: `coder.md` (Homer), `inbox-monitoring.md` (Edith – Second Brain), `marketer.md` (Marketer), `sales.md` (опциональный 4-й агент).
+- **`lessons/lesson-3-agents-with-gbrain/`** – боевой урок: 9 шагов, ~90 минут, создаём Homer/Edith/Marketer и подключаем их к gbrain.
+- **`architecture/`** – конспекты соседних публичных репо (`public-architecture-claude-code`, `public-gbrain-agentos`, `dashi-plugin-claude-code`, `edgelab-claude-md`) + общая диаграмма.
+- **`agentos-skills-navigator/`** – навигационный skill для этого репо. Claude Code подсказывает ученику, какой файл открыть под вопрос.
+- **`docs/`** – `repo-registry.md`, `prerequisites.md`, `faq.md`, `escalation.md` (что делать когда сломалось).
+- **`senior-brainstorm/`** + **`telegram-bot-builder/`** – два прикладных skill-а из боевой практики. Senior-brainstorm используется Homer-ом для архитектурных решений. Telegram-bot-builder – для сборки Telegram-ботов (на случай если рою нужны user-facing боты помимо inbound от оператора).
 
 ## Установка
 
-### Через `.skill` (рекомендуется)
+### Если ты хочешь поднять свой рой
 
-Одна команда – Claude Code сам скачает архив и подключит скилл:
+Порядок такой:
+
+```bash
+# 1. Клонируй этот репо – архитектура и шаблоны
+git clone https://github.com/qwwiwi/agentos-skills.git
+
+# 2. Прочитай главный документ (~15 мин)
+less agentos-skills/AGENTIC-SWARM.md
+
+# 3. Пройди боевой урок (~90 мин)
+open agentos-skills/lessons/lesson-3-agents-with-gbrain/README.md
+```
+
+По ходу урока ты подключишь четыре соседних публичных репо (см. секцию «Связанные публичные репо» ниже): workspace generator, gbrain (общая память), Telegram gateway, гайд по CLAUDE.md.
+
+### Если нужны только skill-ы из этого репо
+
+Через `.skill` bundle (рекомендуется):
 
 ```bash
 claude skill add https://github.com/qwwiwi/agentos-skills/raw/main/telegram-bot-builder.skill
+claude skill add https://github.com/qwwiwi/agentos-skills/raw/main/senior-brainstorm.skill
 ```
 
-Аналогично для других скиллов по мере публикации пакетов.
-
-### Из исходников (для просмотра/форка)
-
-Распакованные версии скиллов лежат в этом же репо:
+Из исходников (для просмотра/форка):
 
 ```bash
 git clone https://github.com/qwwiwi/agentos-skills.git
-cp -r agentos-skills/senior-brainstorm     ~/.claude/skills/
-cp -r agentos-skills/telegram-bot-builder  ~/.claude/skills/
+cp -r agentos-skills/senior-brainstorm         ~/.claude/skills/
+cp -r agentos-skills/telegram-bot-builder      ~/.claude/skills/
+cp -r agentos-skills/agentos-skills-navigator  ~/.claude/skills/
 ```
 
-После копирования перезапусти Claude Code – скиллы появятся в списке.
+После копирования перезапусти Claude Code – skill-ы появятся в списке.
 
-## Что внутри
+## Обязательные skill-ы для каждого агента
 
-### senior-brainstorm
+### Superpowers
 
-Senior-архитектор для образовательных SaaS-платформ. Помогает на этапе проектирования:
+**Superpowers** от Anthropic (и upstream от [obra](https://github.com/obra/superpowers)) – обязательный skill для каждого агента в рое. Без него агент не следует методологии: spec → план → TDD → review → verification. Это не косметика, это инженерная дисциплина в виде skill-файлов, которые загружаются в каждый prompt – модель буквально не может пропустить чеклист.
 
-- выбор stage-aware стека (MVP / growth / scale / enterprise)
-- архитектурные паттерны (модульный монолит, agent-native, MCP-интеграции)
-- threat modeling и compliance (GDPR, SOC 2, PCI DSS, FERPA, COPPA)
-- стратегии тестирования
-
-Триггеры: `/senior-brainstorm`, «brainstorm», «architecture», «how to build», «stack selection», «tech choice», «design this».
-
-### telegram-bot-builder
-
-Универсальный сборщик Telegram-ботов. 7 reference-файлов покрывают:
-
-- TypeScript на grammY
-- Python на aiogram 3 / python-telegram-bot v21
-- БД: SQLite, Supabase, Postgres, Yandex Cloud, Redis
-- платежи (Telegram Payments + кастомные провайдеры)
-- безопасность (rate limiting, валидация, secrets)
-- деплой (VPS, Docker, serverless)
-- AI-интеграция (OpenAI, Anthropic, локальные LLM)
-
-Триггеры: «сделай телеграм бота», «telegram bot», «aiogram», «grammY», «бот на питоне», «telegram-bot-builder».
-
-## Templates – готовые CLAUDE.md
-
-Готовые шаблоны CLAUDE.md для четырёх типов агентов. Копируешь, заменяешь placeholders, кладёшь в workspace агента – он сразу знает кто он, какие у него правила и как ходить в общую память.
-
-- [`templates/claude-md/coder.md`](./templates/claude-md/coder.md) – для агента-разработчика (Plan Mode, TDD, code review, верификация перед done)
-- [`templates/claude-md/marketer.md`](./templates/claude-md/marketer.md) – для агента-маркетолога (контент-планы, TOV, аналитика каналов)
-- [`templates/claude-md/sales.md`](./templates/claude-md/sales.md) – для агента-продажника (воронка, follow-up, объекции, CRM-логирование)
-- [`templates/claude-md/inbox-monitoring.md`](./templates/claude-md/inbox-monitoring.md) – для агента-мониторинга (чтение входящих, фильтрация, эскалация)
-
-Полная инструкция по placeholders и gbrain integration – [`templates/claude-md/README.md`](./templates/claude-md/README.md).
-
-Визуальный гид с copy-кнопками – [`templates/3-claude-md-templates-v2.html`](./templates/3-claude-md-templates-v2.html). Открой в браузере, выбери тип агента, скопируй блок в свой CLAUDE.md.
-
-## Lessons – боевые уроки
-
-Готовые уроки для учеников – пошагово, с проверкой smoke-тестами. Каждый шаг даёт минимально работающий результат, который можно проверить перед переходом к следующему.
-
-- [`lessons/lesson-3-agents-with-gbrain/`](./lessons/lesson-3-agents-with-gbrain/) – создаём трёх агентов (coder / marketer / sales) и подключаем их к общему gbrain (Second Brain).
-  - Время: ~90 минут
-  - Outcome: три рабочих агента, которые видят shared memory и координируются через `swarm.notify`
-  - 9 шагов: overview → prerequisites → создание каждого агента → setup gbrain → connect → test → troubleshooting
-
-## Architecture – как 5 публичных репо собираются вместе
-
-Конспекты соседних публичных репозиториев и схема, как они работают вместе. Прочитай **до** того, как браться за урок – будет понятно, что куда подключается и зачем.
-
-- [`architecture/README.md`](./architecture/README.md) – оглавление
-- [`architecture/01-claude-code-arch.md`](./architecture/01-claude-code-arch.md) – workspace generator (`public-architecture-claude-code`)
-- [`architecture/02-gbrain-shared-memory.md`](./architecture/02-gbrain-shared-memory.md) – shared memory (`public-gbrain-agentos`)
-- [`architecture/03-telegram-bridge.md`](./architecture/03-telegram-bridge.md) – Telegram bridge (`dashi-plugin-claude-code`)
-- [`architecture/04-claude-md-guide.md`](./architecture/04-claude-md-guide.md) – гайд по CLAUDE.md (`edgelab-claude-md`)
-- [`architecture/diagram.md`](./architecture/diagram.md) – общая схема, как репо собираются вместе
-
-## agentos-skills-navigator – навигационный skill
-
-Подключи этот skill – и Claude Code будет помогать ученику навигироваться по этому репо: куда смотреть для уроков, какой template взять, какой архитектурный конспект прочитать первым.
+Установка (две опции):
 
 ```bash
-# .skill bundle – TBD, пока установка из исходников:
-git clone https://github.com/qwwiwi/agentos-skills.git
-cp -r agentos-skills/agentos-skills-navigator ~/.claude/skills/
-```
-
-Триггеры: «agentos», «как создать агента», «templates», «уроки агентос», «agentos-skills-navigator».
-
-## Superpowers (третий обязательный скилл интенсива)
-
-Не пак нашего репо – ставится отдельно. **Superpowers** – это complete software development methodology для Claude Code от [Jesse Vincent (obra)](https://github.com/obra/superpowers): spec-driven workflow → план → subagent-driven development → TDD по красному/зелёному. Совпадает с философией нашего CLAUDE.md гайда (Plan Mode, Subagents, Verification Before Done).
-
-Установка для Claude Code – на выбор:
-
-**Через официальный Anthropic marketplace** (рекомендуется):
-
-```bash
+# Official Anthropic marketplace (рекомендуется)
 /plugin install superpowers@claude-plugins-official
-```
 
-**Через marketplace от автора** (Jesse Vincent, обновляется быстрее):
-
-```bash
+# Upstream от автора Jesse Vincent (обновляется быстрее)
 /plugin marketplace add obra/superpowers-marketplace
 /plugin install superpowers@superpowers-marketplace
 ```
 
-Полная документация и инструкции для Codex CLI, Cursor, Gemini CLI, GitHub Copilot CLI – в [obra/superpowers](https://github.com/obra/superpowers).
+Полная документация: [obra/superpowers](https://github.com/obra/superpowers).
 
-## Связанные ресурсы
+### Skill-ы из этого репо
 
-Полная карта связанных публичных репозиториев – [`docs/repo-registry.md`](./docs/repo-registry.md). Кратко:
+Помимо Superpowers, агенты в рое используют:
 
-- [`qwwiwi/agentos-skills`](https://github.com/qwwiwi/agentos-skills) – этот репо, точка входа: skills + templates + lessons + architecture
-- [`qwwiwi/public-architecture-claude-code`](https://github.com/qwwiwi/public-architecture-claude-code) – workspace generator: создаёт изолированный CLAUDE workspace на агента
-- [`qwwiwi/public-gbrain-agentos`](https://github.com/qwwiwi/public-gbrain-agentos) – shared memory (Second Brain): Postgres + pgvector + MCP-серверы (memory / recall / swarm / tasks)
-- [`qwwiwi/dashi-plugin-claude-code`](https://github.com/qwwiwi/dashi-plugin-claude-code) – Telegram bridge: связывает Claude Code с Telegram-ботом для общения с агентом
-- [`qwwiwi/edgelab-claude-md`](https://github.com/qwwiwi/edgelab-claude-md) – расширенный гайд по CLAUDE.md (анатомия из 18 элементов)
+- `senior-brainstorm` – обязателен для Homer (архитектурные решения, выбор стека, threat modeling).
+- `telegram-bot-builder` – обязателен для Homer и Marketer, если рой собирает Telegram-ботов для конечных пользователей (не только inbound от оператора).
+- `agentos-skills-navigator` – обязателен для всех агентов: помогает ученику и самим агентам ориентироваться в этом репо.
+
+## Связанные публичные репо
+
+Этот репо – одна из пяти публичных частей AgentOS. Чтобы поднять рой, ты пройдёшь через все:
+
+| Репо | Для чего | Когда подключить |
+|------|----------|------------------|
+| [`public-architecture-claude-code`](https://github.com/qwwiwi/public-architecture-claude-code) | Generator workspace для нового агента (CLAUDE.md, hooks, layered memory) | Шаги 03/04/05 урока (создание Homer/Edith/Marketer) |
+| [`public-gbrain-agentos`](https://github.com/qwwiwi/public-gbrain-agentos) | Self-host shared brain (Postgres + pgvector + 3 MCP-сервера) | Шаг 06 урока (когда поднимаешь gbrain на VPS) |
+| [`jarvis-telegram-gateway`](https://github.com/qwwiwi/jarvis-telegram-gateway) | Telegram gateway (Python systemd unit) – **актуален до 2026-06-15** | Шаг 07 урока (подключение Telegram) |
+| [`dashi-plugin-claude-code`](https://github.com/qwwiwi/dashi-plugin-claude-code) | Замена gateway-у после 2026-06-15 (channel pattern, Bun + TS) | Шаг 07 урока после deadline |
+| [`edgelab-claude-md`](https://github.com/qwwiwi/edgelab-claude-md) | Руководство по заполнению CLAUDE.md (анатомия из 18 элементов) | Перед заполнением placeholders в `templates/claude-md/` |
+
+Полная карта со ссылками и описаниями – [`docs/repo-registry.md`](./docs/repo-registry.md).
+
+## Эскалация: что делать если что-то сломалось
+
+Когда рой работает – всё прозрачно. Когда ломается – ученику нужен быстрый switch на правильный runbook:
+
+- Telegram gateway не отвечает на сообщения → см. [`docs/escalation.md#gateway`](./docs/escalation.md)
+- gbrain MCP возвращает 401 / timeout → см. [`docs/escalation.md#gbrain`](./docs/escalation.md)
+- Агент завис / не видит входящие сообщения → см. [`docs/escalation.md#agent`](./docs/escalation.md)
+- Нужна команда диагностики «всё ли живо» → см. [`docs/escalation.md`](./docs/escalation.md)
+
+Homer (агент-координатор) обучен читать `docs/escalation.md` при любых жалобах на инфраструктуру, до того как лезть в код.
 
 ## Лицензия
 
-Каждый скилл наследует лицензию из своего подкаталога (см. соответствующий `LICENSE`).
+Каждый skill наследует лицензию из своего подкаталога (см. соответствующий `LICENSE`).

@@ -59,9 +59,9 @@ agentos-skills/
 │       ├── README.md               Overview + outcomes
 │       ├── 01-overview.md          Зачем 3 агента, какие роли
 │       ├── 02-prerequisites.md     Что установить заранее
-│       ├── 03-create-coder.md      Кодер: шаблон, workspace, старт
-│       ├── 04-create-marketer.md   Маркетолог: шаблон, workspace
-│       ├── 05-create-sales.md      Sales-агент: адаптация шаблона
+│       ├── 03-create-coder.md      Homer (coder): шаблон, workspace, старт
+│       ├── 04-create-edith.md      Edith (Second Brain): inbox + raw/wiki/output
+│       ├── 05-create-marketer.md   Marketer: шаблон, workspace, TOV
 │       ├── 06-setup-gbrain.md      Self-host gbrain, токены, .mcp.json
 │       ├── 07-connect-agents.md    Подключаем все 3 агента к gbrain
 │       ├── 08-test-coordination.md Smoke swarm.notify между агентами

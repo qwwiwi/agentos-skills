@@ -45,9 +45,9 @@ jq --version
 
 **Telegram-боты:** напиши `@BotFather`, создай три бота:
 
-- `your_coder_bot` – для coder-агента
-- `your_marketer_bot` – для marketer-агента
-- `your_sales_bot` – для sales-агента
+- `your_homer_bot` – для Homer (coder)
+- `your_edith_bot` – для Edith (Second Brain)
+- `your_marketer_bot` – для Marketer (контент / growth)
 
 Сохрани три токена в безопасное место (понадобятся на шагах 04-05). Боты можно подключить позже, но удобнее завести сейчас.
 

@@ -147,7 +147,7 @@ grep HMAC ~/.claude-lab/homer/secrets/
 
 ```bash
 # Сам токен валиден?
-TOKEN=$(cat ~/.claude-lab/kael/secrets/telegram-bot-token)
+TOKEN=$(cat ~/.claude-lab/marketer/secrets/telegram-bot-token)
 curl -s "https://api.telegram.org/bot${TOKEN}/getMe" | jq .
 # Должен ответить {"ok": true, "result": {...}}
 ```
@@ -158,7 +158,7 @@ curl -s "https://api.telegram.org/bot${TOKEN}/getMe" | jq .
 
 ## 7. Identity mismatch (два агента видят один инбокс)
 
-**Симптом:** Маркет и Клозер в `list_my_pending` видят одни и те же сообщения, хотя имена разные.
+**Симптом:** Edith и Marketer в `list_my_pending` видят одни и те же сообщения, хотя имена разные.
 
 **Причина:** в `.mcp.json` у обоих стоит один и тот же Bearer-токен. Token → identity на сервере по таблице `agent_tokens`.
 
@@ -166,13 +166,13 @@ curl -s "https://api.telegram.org/bot${TOKEN}/getMe" | jq .
 
 ```bash
 # Сравни токены
-sha256sum ~/.claude-lab/kael/secrets/gbrain.token
-sha256sum ~/.claude-lab/closer/secrets/gbrain.token
+sha256sum ~/.claude-lab/edith/secrets/gbrain.token
+sha256sum ~/.claude-lab/marketer/secrets/gbrain.token
 # Должны быть разные
 
 # Сравни в .mcp.json
-grep Bearer ~/.claude-lab/kael/.claude/.mcp.json
-grep Bearer ~/.claude-lab/closer/.claude/.mcp.json
+grep Bearer ~/.claude-lab/edith/.claude/.mcp.json
+grep Bearer ~/.claude-lab/marketer/.claude/.mcp.json
 # Должны быть разные значения
 ```
 
