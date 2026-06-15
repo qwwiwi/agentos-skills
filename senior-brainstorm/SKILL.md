@@ -1,27 +1,27 @@
 ---
 name: senior-brainstorm
 description: >
-  Senior full-stack architect for educational SaaS platforms (Teachable/Thinkific/Kajabi level).
-  Provides decision frameworks, stage-aware stack recommendations, architecture patterns,
-  AI/LLM integration, agent-native design, security threat modeling, testing strategies,
-  and MCP integration guidance.
+  Senior full-stack architect for ANY software project — Telegram bots, landing pages,
+  content portals/blogs, and platforms with auth. Provides decision frameworks,
+  stage-aware stack recommendations, architecture patterns, agent-native design,
+  security/threat modeling, testing, and MCP guidance.
   Triggers: /senior-brainstorm, "brainstorm", "architecture", "how to build",
   "stack selection", "tech choice", "architectural decision", "design this",
   "senior brainstorm", "platform stack".
-  NOT for: simple CRUD tasks, non-EdTech projects, single-framework questions without product context.
+  NOT for: trivial single-file scripts, a one-off CRUD with no architectural question,
+  or a single-framework syntax question without product context.
 ---
 
 # Senior Brainstorm v6
 
 ## Scope
 
-Architecture design for educational SaaS platforms: stack selection, feature brainstorm,
+Architecture design for any software project: stack selection, feature brainstorm,
 decision review, AI/LLM integration, agent-native system design.
 
 ## Non-goals
 
-- Simple CRUD tasks without architectural questions
-- Tasks outside educational SaaS
+- Simple CRUD without architectural questions
 - Single-framework questions without product context
 
 ## Decision Framework
@@ -43,11 +43,17 @@ Every decision passes through this filter:
 | PCI DSS | Payment card data | Tokenization, network segmentation, quarterly scans | Direct card processing |
 | FERPA | US student education records | Consent transfers at 18 OR postsecondary enrollment; directory info opt-out; audit trail | K-12 or university data |
 | COPPA | US children <13 | Verifiable parental consent (schools can consent in educational contexts); data minimization; no behavioral ads; operator carries compliance responsibility | Users under 13 |
+| 152-ФЗ | Personal data of RU citizens | Data localization: record/store RU citizens' personal data in a database physically located in Russia; use RU hosting (Timeweb Cloud / Yandex Cloud / VK Cloud / Selectel) | Any RU users whose personal data you collect |
 
 **FERPA notes:** Rights transfer to the student at age 18 OR upon enrollment in
 postsecondary education (whichever comes first), not solely based on age. Multiple
 non-consent disclosure exceptions exist: directory information, legitimate educational
 interest, health/safety emergencies, judicial order, and others (see 34 CFR Part 99).
+
+**152-ФЗ notes:** RU data-localization (242-ФЗ amendment to 152-ФЗ, art. 18 part 5)
+requires that the primary database recording RU citizens' personal data sits on servers
+in Russia. Mixed audiences can split storage: RU-citizen personal data on RU servers,
+the rest elsewhere. This is a practical engineering note, not legal advice.
 
 **COPPA notes:** In educational contexts, schools may consent on behalf of students
 under 13, but the operator (your platform) still carries compliance responsibility
@@ -57,6 +63,36 @@ When FERPA/COPPA applies: implement age-gating, parental consent flows, and audi
 logging for all data access. Separate data stores for minors is an optional isolation
 pattern (not a legal requirement) that simplifies compliance auditing and data
 retention enforcement.
+
+## Project Archetypes
+
+The project-type entry point. Pick the archetype first, then refine with the Default
+Stack tracks below. This section is concise on purpose — it answers "what kind of thing
+am I building, and what stack does it want?"
+
+**Two axes to check first:**
+
+1. **Does a search engine need the content?**
+   - **Public** (must be indexed) → **SSG/SSR**.
+   - **Behind login** (private app) → **CSR is fine** (simpler/cheaper, no SSR plumbing).
+   - Note: **Yandex renders JS much worse than Google**. For a RU audience, public pages
+     must be **SSG/SSR, never pure CSR** — Yandex will not see CSR-rendered content reliably.
+
+2. **Are you coding with an AI agent?** → prefer **TypeScript + Zod + popular, conventional
+   tools**. Convention and types are rails for the agent: fewer hallucinations, easier review.
+
+### Archetype → stack
+
+| Archetype | Rendering | Stack | Hosting / Backend |
+|---|---|---|---|
+| **Портал / блог** (SEO-контент) | SSG | **Astro** | Cloudflare Pages. No backend. |
+| **Лендинг** (продающий) | SSG | **Astro** or plain **HTML + Tailwind** | Cloudflare Pages. |
+| **Платформа с личным кабинетом** | CSR (app behind login); SSR only for public pages | **React + Vite** (CSR), or **TanStack Start** if you need SSR for public pages. Data via **TanStack Query**, forms via **TanStack Form** | **Self-host Supabase** (Postgres + Auth + auto REST/Realtime + RLS) + thin **Hono + Bun** layer for business logic RLS can't express. |
+| **Telegram-бот** | n/a | **Bun + grammY** (TS, one language with the web stack) or **Python + aiogram** (closer to AI/data) | Data in Supabase / Postgres. |
+
+For content/SEO sites, **Astro is the recommended SSG choice** (it ships zero JS by
+default and indexes cleanly, including on Yandex). Where the Default Stack tracks below
+mention "Vite SSG / Next.js" for static content, prefer Astro for content/SEO.
 
 ## Default Principles
 
@@ -122,7 +158,7 @@ Use for internal dashboards, admin panels, SPAs, mobile apps, desktop apps, bot 
 
 - Backend: **TypeScript + Hono + Bun**
 - Frontend (SPA): **Client React + Vite 8** (no SSR, no Next.js)
-- Frontend (static): **Vite 8 SSG**
+- Frontend (static): **Vite 8 SSG** for app-adjacent static; **Astro** for content/SEO sites (recommended — see Project Archetypes)
 - Mobile: **Expo + React Native**
 - Desktop: **Electron (TS + React)**
 - DB: **Managed Postgres** (DO / fly.io / Supabase / Neon) + **Prisma**
@@ -131,11 +167,12 @@ Use for internal dashboards, admin panels, SPAs, mobile apps, desktop apps, bot 
 Full details + Orgrimmar notes: `references/stacks-yy-default.md`.
 Credit: Сухарев (YY), https://t.me/sukharev_ii.
 
-### Track B: EdTech SaaS (SSR/SEO required)
+### Track B: SSR/SEO content platform
 
 Use for course platforms, marketing sites, content-heavy public pages.
 
-- Frontend: **Next.js 16** (App Router) — see `references/stacks-frontend.md`
+- Static content / SEO sites: **Astro** (recommended SSG — see Project Archetypes)
+- Frontend (app + SSR): **Next.js 16** (App Router) — see `references/stacks-frontend.md`
 - Backend: **Node.js 22 + Fastify 5** — see `references/stacks-backend.md`
 - DB: **Postgres** (managed) + Redis for cache/queues
 - Auth: **Clerk / Auth0 / NextAuth** depending on enterprise needs
@@ -179,14 +216,14 @@ RAG pipelines, AI tutoring patterns, prompt observability, guardrails, vector DB
 WebSocket, CRDT, WebRTC, SSE, Liveblocks -- when to add real-time and how to scale it.
 -> See `references/realtime.md` for technology options, architecture patterns, and scaling.
 
-## LTI (Learning Tools Interoperability)
+## LTI (Learning Tools Interoperability) (EdTech-only — load only for LMS integration)
 
 LMS integration via LTI 1.3/Advantage, OneRoster/SIS sync, SCORM/xAPI/cmi5 standards.
 -> See `references/lti.md` for versions, implementation checklist, and content packaging.
 
 ## Build vs Buy Decision Matrix
 
-Component sourcing decisions for EdTech: scoring matrix, decision rules, common SaaS options.
+Component sourcing decisions for any product: scoring matrix, decision rules, common SaaS options.
 -> See `references/build-vs-buy.md` for the full matrix and buy options table.
 
 ## Golden Question Bank (Discovery Phase)
@@ -215,7 +252,7 @@ Structured questions for the Discovery phase. Select relevant categories based o
 7. Data residency requirements? (EU, US, specific country)
 8. Existing infrastructure? (cloud provider, CI/CD, monitoring)
 
-### Pedagogy
+### Pedagogy (EdTech / course products only)
 
 1. What learning model? (self-paced, cohort, live, blended)
 2. Assessment types? (quizzes, projects, peer review, AI-graded)
@@ -245,11 +282,15 @@ Structured questions for the Discovery phase. Select relevant categories based o
 - Phased implementation plan
 - Risk register
 
-## EdTech Domain
+## Domain examples
 
-Video delivery, entitlements, instructor workflows, cohort/live learning, progress tracking,
+Domain-specific concerns to consider when relevant — e.g. for an **EdTech** product:
+video delivery, entitlements, instructor workflows, cohort/live learning, progress tracking,
 certificates, content moderation, analytics (completion rates, engagement), AI tutoring,
-LTI integration, real-time collaboration, agent-operated admin workflows.
+LTI integration, real-time collaboration, agent-operated admin workflows. For other domains
+the relevant concerns differ — **e-commerce:** catalog/cart/payments/inventory; **marketplace:**
+two-sided matching, trust/reputation, payouts; **SaaS:** billing/seats, multi-tenancy, usage
+metering. Map the concerns of whatever domain you are actually building.
 
 ## Knowledge Base
 
@@ -269,8 +310,8 @@ Detailed reference for each domain. Load only the relevant file:
 | MCP | `references/mcp.md` | MCP vs API, server selection, security model, bounded workflows |
 | AI/LLM | `references/ai-llm.md` | RAG pipelines, tutoring patterns, vector DB selection, guardrails |
 | Real-Time | `references/realtime.md` | WebSocket, CRDT, WebRTC, live collaboration |
-| LTI/Standards | `references/lti.md` | LMS integration, LTI 1.3/Advantage, OneRoster, SCORM/xAPI |
-| Build vs Buy | `references/build-vs-buy.md` | Component sourcing decisions, EdTech SaaS options |
+| LTI/Standards | `references/lti.md` | **EdTech-only** — LMS integration, LTI 1.3/Advantage, OneRoster, SCORM/xAPI |
+| Build vs Buy | `references/build-vs-buy.md` | Component sourcing decisions, common SaaS buy options |
 
 ## Templates
 

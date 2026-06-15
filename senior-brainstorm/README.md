@@ -1,29 +1,30 @@
 # Senior Brainstorm v5
 
-Senior full-stack architect skill for Claude Code. Focused on **educational SaaS platforms** at the level of Teachable / Thinkific / Kajabi.
+Senior full-stack architect skill for Claude Code. Works for **any software project** — Telegram bots, landing pages, content portals/blogs, and platforms with auth.
 
-Provides decision frameworks, stage-aware stack recommendations, architecture patterns, AI/LLM integration, agent-native design, security threat modeling, testing strategies, and MCP integration guidance.
+Provides decision frameworks, stage-aware stack recommendations, project archetypes, architecture patterns, AI/LLM integration, agent-native design, security threat modeling, testing strategies, and MCP integration guidance.
 
 ## When to use
 
 **Triggers:** `/senior-brainstorm`, "brainstorm", "architecture", "how to build", "stack selection", "tech choice", "architectural decision", "design this", "senior brainstorm", "platform stack".
 
 **Use for:**
-- Greenfield EdTech platform design
+- Greenfield project design (bots, landings, portals/blogs, platforms with auth)
 - Re-architecture / migration planning
-- Stack selection with compliance constraints (GDPR, SOC 2, PCI DSS, FERPA, COPPA)
+- Stack selection with compliance constraints (GDPR, SOC 2, PCI DSS, FERPA, COPPA, 152-ФЗ)
 - AI/LLM integration design (RAG, tutoring, guardrails)
-- Build vs buy decisions for EdTech components
-- LTI / SCORM / xAPI integration strategy
+- Build vs buy decisions for product components
+- LTI / SCORM / xAPI integration strategy (EdTech / LMS only)
 
 **NOT for:**
-- Simple CRUD tasks
-- Non-EdTech projects
-- Single-framework questions without product context
+- Trivial single-file scripts
+- A one-off CRUD with no architectural question
+- A single-framework syntax question without product context
 
 ## What you get
 
 - **Decision Framework** — stage, team, budget, time-to-market, compliance filter
+- **Project Archetypes** — portal/blog, landing, platform-with-login, Telegram bot → stack per archetype
 - **Agent Native checklist** — backend-for-agents, API-first, MCP integration, CLI tooling
 - **Golden Question Bank** — structured discovery questions (business, technical, pedagogy, compliance)
 - **Cost/Complexity Scoring** — quantitative gate before recommending advanced architecture
