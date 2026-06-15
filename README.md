@@ -68,14 +68,7 @@ open agentos-skills/lessons/lesson-3-agents-with-gbrain/README.md
 
 ### Если нужны только skill-ы из этого репо
 
-Через `.skill` bundle (рекомендуется):
-
-```bash
-claude skill add https://github.com/qwwiwi/agentos-skills/raw/main/telegram-bot-builder.skill
-claude skill add https://github.com/qwwiwi/agentos-skills/raw/main/senior-brainstorm.skill
-```
-
-Из исходников (для просмотра/форка):
+Skill в Claude Code ставится копированием папки в `~/.claude/skills/` — отдельной команды `claude skill add <url>` в Claude Code НЕТ:
 
 ```bash
 git clone https://github.com/qwwiwi/agentos-skills.git
@@ -146,7 +139,7 @@ Skill-creator проведёт через 4 шага: capture intent → intervi
 
 1. Нужна новая способность для агента?
 2. Загляни на [skills.sh](https://www.skills.sh/) – есть готовый?
-3. Если да – установи через `claude skill add <url>` или `/plugin install`.
+3. Если да – установи: с skills.sh через `npx skills add <owner/repo>`, плагин через `/plugin install <name>`, либо скопируй папку скилла в `~/.claude/skills/`.
 4. Если нет – запусти `skill-creator` и сделай свой. Когда отполируешь – опубликуй обратно в catalog, чтобы кто-то ещё переиспользовал.
 
 Так рой накапливает collective knowledge без дублирования.
