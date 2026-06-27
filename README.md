@@ -46,6 +46,7 @@
 - **`agentos-skills-navigator/`** – навигационный skill для этого репо. Claude Code подсказывает ученику, какой файл открыть под вопрос.
 - **`docs/`** – `repo-registry.md`, `prerequisites.md`, `faq.md`, `escalation.md` (что делать когда сломалось).
 - **`senior-brainstorm/`** + **`telegram-bot-builder/`** – два прикладных skill-а из боевой практики. Senior-brainstorm используется Homer-ом для архитектурных решений. Telegram-bot-builder – для сборки Telegram-ботов (на случай если рою нужны user-facing боты помимо inbound от оператора).
+- **`yt-research/`** + **`youtube-thumbnail/`** – прикладные skill-ы роли Marketer. `yt-research` – ресёрч YouTube-ниши (что залетает по velocity, каналы-конкурентов, транскрипты). `youtube-thumbnail` – генерация YouTube-обложек 1920×1080 (лицо из кадров + gpt-image по примерам + наложение текста).
 
 ## Установка
 
@@ -75,6 +76,8 @@ git clone https://github.com/qwwiwi/agentos-skills.git
 cp -r agentos-skills/senior-brainstorm         ~/.claude/skills/
 cp -r agentos-skills/telegram-bot-builder      ~/.claude/skills/
 cp -r agentos-skills/agentos-skills-navigator  ~/.claude/skills/
+cp -r agentos-skills/yt-research               ~/.claude/skills/
+cp -r agentos-skills/youtube-thumbnail         ~/.claude/skills/
 ```
 
 После копирования перезапусти Claude Code – skill-ы появятся в списке.
@@ -105,6 +108,8 @@ cp -r agentos-skills/agentos-skills-navigator  ~/.claude/skills/
 - `senior-brainstorm` – обязателен для Homer (архитектурные решения, выбор стека, threat modeling).
 - `telegram-bot-builder` – обязателен для Homer и Marketer, если рой собирает Telegram-ботов для конечных пользователей (не только inbound от оператора).
 - `agentos-skills-navigator` – обязателен для всех агентов: помогает ученику и самим агентам ориентироваться в этом репо.
+- `yt-research` – для Marketer: ресёрч YouTube-ниши (топ по velocity, конкуренты, транскрипты) перед контент-планом.
+- `youtube-thumbnail` – для Marketer: YouTube-обложки 1920×1080 в фирменном стиле (примеры + фото → gpt-image).
 
 ## Создание собственных skill-ов
 
