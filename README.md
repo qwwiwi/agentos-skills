@@ -2,10 +2,11 @@
 
 Skills-пак для Claude Code, используемый в интенсиве **AgentOS** ([Edge Lab](https://edgelab.su)).
 
-После установки Claude Code получает два специализированных навыка:
+После установки Claude Code получает три специализированных навыка:
 
 - [**senior-brainstorm**](./senior-brainstorm/) — senior full-stack архитектор для EdTech-платформ. Активируется на вопросах архитектуры, выбора стека, AI/LLM интеграции.
 - [**telegram-bot-builder**](./telegram-bot-builder/) — генератор Telegram-ботов на Python (aiogram 3 / python-telegram-bot v21) или TypeScript (grammY). Поддерживает SQLite, Supabase, Postgres, Yandex Cloud, Redis.
+- [**hallmark**](./hallmark/) — дизайн-скилл против «AI-generated» вида сайтов и интерфейсов (Together AI, MIT). Лендинги, дашборды, редизайн и аудит.
 
 ## Установка
 
@@ -27,6 +28,7 @@ claude skill add https://github.com/qwwiwi/agentos-skills/raw/main/telegram-bot-
 git clone https://github.com/qwwiwi/agentos-skills.git
 cp -r agentos-skills/senior-brainstorm     ~/.claude/skills/
 cp -r agentos-skills/telegram-bot-builder  ~/.claude/skills/
+cp -r agentos-skills/hallmark              ~/.claude/skills/
 ```
 
 После копирования перезапусти Claude Code — скиллы появятся в списке.
@@ -57,6 +59,32 @@ Senior-архитектор для образовательных SaaS-плат�
 - AI-интеграция (OpenAI, Anthropic, локальные LLM)
 
 Триггеры: «сделай телеграм бота», «telegram bot», «aiogram», «grammY», «бот на питоне», «telegram-bot-builder».
+
+### hallmark
+
+Дизайн-скилл от Together AI ([Nutlope/hallmark](https://github.com/Nutlope/hallmark), MIT), чтобы страницы выглядели спроектированными, а не сгенерированными:
+
+- 50 тем оформления
+- реальные фото с открытыми лицензиями
+- страница строится от задачи посетителя
+- проверка в браузере на 8 размерах экрана на «AI-приметы»
+- ревьюер со свежим контекстом
+
+Режимы: `/hallmark <задача>`, `/hallmark redesign <путь>`, `/hallmark audit <путь>`.
+
+Требования: Node 18+, Chrome и `puppeteer-core` для проверки в браузере.
+
+Установка (любой из вариантов):
+
+```bash
+claude skill add https://github.com/qwwiwi/agentos-skills/raw/main/hallmark.skill
+# или скопировать папку
+cp -r agentos-skills/hallmark ~/.claude/skills/
+# или из upstream
+npx skills add nutlope/hallmark -g
+```
+
+Когда использовать в AgentOS: лендинги, дашборды и любые новые страницы, в том числе на 2-й неделе программы. Источник, коммит и порядок обновления — в [hallmark/NOTICE.md](./hallmark/NOTICE.md).
 
 ## Superpowers (третий обязательный скилл интенсива)
 
