@@ -219,6 +219,8 @@ async def reject_unexpected(message: Message) -> None:
 ## 4. WebApp (Mini App) Data Validation
 
 Telegram sends `initData` signed with bot token. Validate before trusting.
+Also reject stale data: `auth_date` older than ~15 minutes. The tested, canonical
+version (with freshness check and Zod) lives in [mini-apps.md](mini-apps.md), section 2.
 
 ### Python: HMAC-SHA256 validation
 
@@ -226,6 +228,7 @@ Telegram sends `initData` signed with bot token. Validate before trusting.
 import hashlib
 import hmac
 import json
+import time
 from urllib.parse import parse_qs, unquote
 
 
@@ -259,6 +262,11 @@ def validate_webapp_data(
     ).hexdigest()
 
     if not hmac.compare_digest(computed_hash, received_hash):
+        return None
+
+    # reject stale data (replay protection)
+    auth_date = int(parsed.get("auth_date", ["0"])[0])
+    if time.time() - auth_date > 900:
         return None
 
     # parse user data
@@ -310,12 +318,15 @@ function validateWebAppData(
     .update(dataCheckString)
     .digest("hex");
 
-  if (
-    !crypto.timingSafeEqual(
-      Buffer.from(computedHash),
-      Buffer.from(hash)
-    )
-  ) {
+  const a = Buffer.from(computedHash);
+  const b = Buffer.from(hash);
+  // timingSafeEqual throws on different lengths
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return null;
+  }
+
+  // reject stale data (replay protection)
+  if (Date.now() / 1000 - Number(params.get("auth_date") ?? 0) > 900) {
     return null;
   }
 
