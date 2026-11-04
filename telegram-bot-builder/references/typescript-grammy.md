@@ -146,7 +146,7 @@ bot.command("count", async (ctx) => {
 ### Auth middleware
 
 ```typescript
-const ADMIN_IDS = new Set([164795011]);
+const ADMIN_IDS = new Set([111111111]);
 
 async function adminOnly(ctx: Context, next: NextFunction): Promise<void> {
   if (!ctx.from || !ADMIN_IDS.has(ctx.from.id)) {

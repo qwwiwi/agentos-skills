@@ -130,7 +130,7 @@ settings = Settings()
 `.env`:
 ```
 BOT_TOKEN=123456:ABC-DEF
-ADMIN_IDS=[164795011,999999]
+ADMIN_IDS=[111111111,999999]
 REDIS_URL=redis://localhost:6379/0
 ```
 
@@ -532,7 +532,7 @@ from typing import Any, Awaitable, Callable
 from aiogram import BaseMiddleware
 from aiogram.types import Message, TelegramObject
 
-ADMIN_IDS: set[int] = {164795011}
+ADMIN_IDS: set[int] = {111111111}
 
 
 class AdminMiddleware(BaseMiddleware):
@@ -763,7 +763,7 @@ F.data.startswith("menu:")      # prefix
 F.data.in_({"yes", "no"})      # one of set
 
 # User
-F.from_user.id == 164795011    # specific user
+F.from_user.id == 111111111    # specific user
 F.from_user.id.in_({1, 2, 3}) # user whitelist
 
 # Chat type
@@ -818,7 +818,7 @@ class IsAdminFilter(Filter):
 
 
 # Usage
-@router.message(Command("secret"), IsAdminFilter(admin_ids=[164795011]))
+@router.message(Command("secret"), IsAdminFilter(admin_ids=[111111111]))
 async def secret_cmd(message: Message, is_admin: bool) -> None:
     await message.answer("Admin area")
 ```

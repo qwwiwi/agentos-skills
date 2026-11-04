@@ -15,6 +15,7 @@ Polling = long-running process. Webhooks = HTTP endpoint behind reverse proxy or
 6. PaaS
 7. Setting Webhook
 8. Environment Variables
+9. Production Rules (owner corrections)
 
 ---
 
@@ -27,6 +28,9 @@ Unit file -- `/etc/systemd/system/my-bot.service`:
 Description=Telegram Bot (my-bot)
 After=network-online.target
 Wants=network-online.target
+# Start limits belong to [Unit], not [Service]
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -37,8 +41,6 @@ EnvironmentFile=/opt/my-bot/.env
 ExecStart=/opt/my-bot/.venv/bin/python -m bot
 Restart=on-failure
 RestartSec=5
-StartLimitIntervalSec=60
-StartLimitBurst=5
 
 # Hardening
 NoNewPrivileges=true
@@ -57,7 +59,7 @@ WantedBy=multi-user.target
 BOT_TOKEN=123456:ABC-DEF
 DATABASE_URL=postgresql://bot:pass@localhost:5432/botdb
 LOG_LEVEL=INFO
-ADMIN_IDS=164795011
+ADMIN_IDS=111111111
 ```
 
 Commands:
@@ -698,7 +700,7 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/botdb
 REDIS_URL=redis://localhost:6379/0
 
 # Access control
-ADMIN_IDS=164795011,123456789
+ADMIN_IDS=111111111,123456789
 
 # Observability
 LOG_LEVEL=INFO
@@ -712,3 +714,64 @@ Rules:
   (Docker secrets, Fly secrets, Railway variables, wrangler secret).
 - `ADMIN_IDS` -- comma-separated Telegram user IDs. Parse at startup, not per-request.
 - `LOG_LEVEL` -- standard levels: DEBUG, INFO, WARNING, ERROR.
+
+---
+
+## 9. Production Rules (owner corrections)
+
+Lessons from our live bots. Sources: [owner-corrections.md](owner-corrections.md).
+
+### Webhook vs polling on a VPS
+
+- One process per bot, under systemd (or PM2) with `Restart=on-failure`.
+- Polling is the default for a bot on its own VPS: no domain, no TLS, outbound only.
+- Webhook when the bot shares an HTTP service (API + bot in one app) or runs serverless. Always set `secret_token` and check the `X-Telegram-Bot-Api-Secret-Token` header.
+- Never run polling and a webhook for the same token at once: `getUpdates` fails with 409 while a webhook is set. Switching modes = `deleteWebhook` first.
+
+### One token per bot, tokens only in `.env`
+
+- Each bot has exactly one token and one process that uses it. Two processes polling the same token fight over updates (409 Conflict).
+- Never reuse another bot's token "temporarily". A `file_id` is per bot too.
+- Token lives in the server `.env` (`chmod 600`, owned by the service user), loaded via `EnvironmentFile=`. Not in the repo, not in chat with the agent, not in CLI arguments (visible in `ps`).
+- Copy a token between servers only with the owner's OK, without printing it: pipe from one `ssh` into a file on the other with `umask 077`.
+- Tests never read the production `.env` (a test run sent real «new payment» alerts to the owner twice).
+
+### Logs leak the token
+
+The Bot API puts the token in the URL path, and httpx/aiohttp log the full URL at INFO. Every log tail goes through a filter:
+
+```bash
+journalctl -u my-bot -n 200 --no-pager | sed -E 's#bot[0-9]+:[A-Za-z0-9_-]+#bot<REDACTED>#g'
+```
+
+Or raise the HTTP client logger to WARNING in the bot (`logging.getLogger("httpx").setLevel(logging.WARNING)`).
+
+### Which release is actually running
+
+Deploy into `releases/<sha>-<time>/`, point a `current` symlink at it, `WorkingDirectory=/opt/my-bot/current`.
+Old flat directories next to `releases/` are junk; grepping them gives false «fix not deployed».
+Check the live process, not a path:
+
+```bash
+PID=$(systemctl show my-bot -p MainPID --value)
+readlink "/proc/$PID/cwd"   # the release the bot really runs from
+```
+
+Also check WHERE the bot runs. If the bot runs on server A but you edit `.env` on server B, nothing changes (split-brain). Find the host by the process, not by the repo.
+
+### Deploys and in-memory state
+
+- `MemoryStorage` FSM is wiped by every restart: a user in the middle of a flow (e.g. waiting for an email code) falls through. Use persistent FSM storage (Redis/Postgres) or make the step recoverable from server-side state (a stateless handler for «6-digit code» that checks a pending code by Telegram ID).
+- A reply keyboard outlives the bot's memory: when removing a `web_app` keyboard button, keep a transitional `F.web_app_data` handler, otherwise messages from stuck users vanish.
+
+### Network: Russian hosts and Telegram
+
+- From many Russian servers `api.telegram.org` is unreachable. Run the bot on a non-Russian VPS; if the API/database is on a Russian host, connect them with a queue table (API writes a row, the bot polls and sends).
+- Telegram cannot fetch URLs from those hosts either (`sendPhoto` by URL → 400). Use `file_id`.
+- Telegram-derived data (subscribers, chats, channel analytics) is not stored on Russian servers (owner rule).
+
+### After deploy
+
+- Check the process is up and runs from the new release (`/proc/PID/cwd`).
+- Send `/start` from a test account, check the main flow.
+- Bot + Mini App + site: deploy all affected parts to the same version.
