@@ -171,8 +171,10 @@ Init with service role key (NEVER anon key on server-side bot):
 ```python
 from supabase import create_client
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]  # service_role, not anon
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")  # service_role, not anon
+if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+    raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_KEY are required")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 ```
@@ -303,12 +305,26 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const BOT_TOKEN = Deno.env.get("BOT_TOKEN")!;
-const WEBHOOK_SECRET = Deno.env.get("WEBHOOK_SECRET")!;
+// Fail closed: no valid secret -> the function does not start (see security.md).
+const WEBHOOK_SECRET = Deno.env.get("WEBHOOK_SECRET") ?? "";
+if (!/^[A-Za-z0-9_-]{32,256}$/.test(WEBHOOK_SECRET)) {
+  throw new Error("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]");
+}
+const enc = new TextEncoder();
+const sha256 = async (s: string): Promise<Uint8Array> =>
+  new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(s)));
+
+async function isValidSecret(header: string | null): Promise<boolean> {
+  if (!header) return false; // missing header is never valid
+  const [a, b] = await Promise.all([sha256(header), sha256(WEBHOOK_SECRET)]);
+  let diff = 0; // constant-time compare of equal-length digests
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
 
 serve(async (req) => {
   // Validate secret token
-  const secret = req.headers.get("x-telegram-bot-api-secret-token");
-  if (secret !== WEBHOOK_SECRET) {
+  if (!(await isValidSecret(req.headers.get("x-telegram-bot-api-secret-token")))) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -424,7 +440,9 @@ import asyncpg
 
 pool: asyncpg.Pool | None = None
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
 
 
 async def init_pool() -> None:
@@ -652,21 +670,39 @@ of Russian citizens stored in Russia).
 
 ```python
 # index.py -- Yandex Cloud Function entry point
+import hmac
 import json
 import os
+import re
 
 import psycopg2
 import requests
 
-BOT_TOKEN = os.environ["BOT_TOKEN"]
-DB_HOST = os.environ["DB_HOST"]  # Managed PostgreSQL internal hostname
-DB_NAME = os.environ["DB_NAME"]
-DB_USER = os.environ["DB_USER"]
-DB_PASSWORD = os.environ["DB_PASSWORD"]
+
+def require_env(name: str) -> str:
+    """Return a required env var; fail at cold start if it is missing or empty."""
+    value = os.environ.get(name, "")
+    if not value:
+        raise RuntimeError(f"{name} is not set")
+    return value
+
+
+BOT_TOKEN = require_env("BOT_TOKEN")
+WEBHOOK_SECRET = require_env("WEBHOOK_SECRET")  # same value as setWebhook secret_token
+DB_HOST = require_env("DB_HOST")  # Managed PostgreSQL internal hostname
+DB_NAME = require_env("DB_NAME")
+DB_USER = require_env("DB_USER")
+DB_PASSWORD = require_env("DB_PASSWORD")
+if not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", WEBHOOK_SECRET):
+    raise RuntimeError("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]")
 
 
 def handler(event: dict, context) -> dict:
     """Yandex Cloud Function handler for Telegram webhook."""
+    secret = (event.get("headers") or {}).get("X-Telegram-Bot-Api-Secret-Token")
+    if not secret or not hmac.compare_digest(secret.encode(), WEBHOOK_SECRET.encode()):
+        return {"statusCode": 403, "body": "Forbidden"}
+
     body = json.loads(event.get("body", "{}"))
     message = body.get("message")
     if not message or not message.get("text"):

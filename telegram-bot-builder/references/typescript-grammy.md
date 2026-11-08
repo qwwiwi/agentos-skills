@@ -45,15 +45,20 @@ import express from "express";
 import { Bot, webhookCallback } from "grammy";
 
 const bot = new Bot(process.env.BOT_TOKEN!);
+// Fail closed: no valid secret -> no start (see security.md).
+const secretToken = process.env.WEBHOOK_SECRET ?? "";
+if (!/^[A-Za-z0-9_-]{32,256}$/.test(secretToken)) {
+  throw new Error("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]");
+}
 
 bot.command("start", (ctx) => ctx.reply("Hello!"));
 
 const app = express();
 app.use(express.json());
-app.post("/webhook", webhookCallback(bot, "express"));
+app.post("/webhook", webhookCallback(bot, "express", { secretToken }));
 
 app.listen(3000, async () => {
-  await bot.api.setWebhook("https://example.com/webhook");
+  await bot.api.setWebhook("https://example.com/webhook", { secret_token: secretToken });
   console.log("Webhook set");
 });
 ```
@@ -67,6 +72,7 @@ export default {
   async fetch(req: Request, env: Record<string, string>): Promise<Response> {
     const bot = new Bot(env.BOT_TOKEN);
     bot.command("start", (ctx) => ctx.reply("Hello from Workers!"));
+    // Shortened: in production pass a validated { secretToken } (security.md, "Fail closed").
     return webhookCallback(bot, "cloudflare-mod")(req);
   },
 };
@@ -594,6 +600,7 @@ export default {
       botInfo: JSON.parse(env.BOT_INFO),
     });
     bot.command("start", (ctx) => ctx.reply("Hello from CF Workers!"));
+    // Shortened: in production pass a validated { secretToken } (security.md, "Fail closed").
     return webhookCallback(bot, "cloudflare-mod")(req);
   },
 };
@@ -610,6 +617,7 @@ bot.command("start", (ctx) => ctx.reply("Hello from Vercel!"));
 
 export const config = { runtime: "edge" };
 
+// Shortened: in production pass a validated { secretToken } (security.md, "Fail closed").
 export default webhookCallback(bot, "std/http");
 ```
 
@@ -622,6 +630,7 @@ import { Bot, webhookCallback } from "grammy";
 const bot = new Bot(Deno.env.get("BOT_TOKEN")!);
 bot.command("start", (ctx) => ctx.reply("Hello from Supabase!"));
 
+// Shortened: in production pass a validated { secretToken } (security.md, "Fail closed").
 const handleUpdate = webhookCallback(bot, "std/http");
 
 Deno.serve(async (req: Request) => {
@@ -720,6 +729,10 @@ const secretToken = process.env.WEBHOOK_SECRET ?? "";
 
 if (!token) throw new Error("BOT_TOKEN is required");
 if (!webhookUrl) throw new Error("WEBHOOK_URL is required");
+// Fail closed: an empty secretToken would make an empty header valid.
+if (!/^[A-Za-z0-9_-]{32,256}$/.test(secretToken)) {
+  throw new Error("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]");
+}
 
 const bot = new Bot<BotContext>(token);
 bot.api.config.use(autoRetry({ maxRetryAttempts: 3 }));

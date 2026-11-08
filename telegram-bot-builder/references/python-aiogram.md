@@ -53,7 +53,10 @@ if __name__ == "__main__":
 ### Webhook (FastAPI)
 
 ```python
+import hmac
 import logging
+import os
+import re
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -64,7 +67,10 @@ from aiogram.types import Update
 from fastapi import FastAPI, Header, HTTPException, Request
 
 WEBHOOK_PATH = "/webhook/telegram"
-WEBHOOK_SECRET = "random-secret-string-here"
+# Fail closed: no valid secret -> no start (see security.md, "Fail closed").
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
+if not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", WEBHOOK_SECRET):
+    raise RuntimeError("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]")
 BASE_URL = "https://example.com"
 
 bot = Bot(
@@ -91,9 +97,10 @@ app = FastAPI(lifespan=lifespan)
 @app.post(WEBHOOK_PATH)
 async def telegram_webhook(
     request: Request,
-    x_telegram_bot_api_secret_token: str = Header(None),
+    x_telegram_bot_api_secret_token: str | None = Header(None),
 ) -> dict[str, bool]:
-    if x_telegram_bot_api_secret_token != WEBHOOK_SECRET:
+    token = x_telegram_bot_api_secret_token
+    if not token or not hmac.compare_digest(token.encode(), WEBHOOK_SECRET.encode()):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     update = Update.model_validate(await request.json(), context={"bot": bot})
@@ -106,6 +113,7 @@ Run: `uvicorn bot:app --host 0.0.0.0 --port 8080`
 ### Config from env (pydantic-settings)
 
 ```python
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -116,7 +124,8 @@ class Settings(BaseSettings):
     )
 
     bot_token: str
-    webhook_secret: str = ""
+    # empty = polling mode; webhook mode refuses to start without 32+ chars
+    webhook_secret: str = Field("", max_length=256, pattern=r"^[A-Za-z0-9_-]*$")
     webhook_base_url: str = ""
     admin_ids: list[int] = []
     redis_url: str = "redis://localhost:6379/0"
@@ -925,6 +934,7 @@ if __name__ == "__main__":
 ### Complete bot.py with webhook (FastAPI + uvicorn)
 
 ```python
+import hmac
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -945,6 +955,10 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 log = logging.getLogger(__name__)
+
+# Fail closed: webhook mode without a real secret accepts updates from anyone.
+if len(settings.webhook_secret) < 32:
+    raise RuntimeError("WEBHOOK_SECRET (32-256 chars) is required in webhook mode")
 
 storage = RedisStorage.from_url(settings.redis_url)
 
@@ -982,9 +996,10 @@ app = FastAPI(lifespan=lifespan)
 @app.post(WEBHOOK_PATH)
 async def webhook_handler(
     request: Request,
-    x_telegram_bot_api_secret_token: str = Header(None),
+    x_telegram_bot_api_secret_token: str | None = Header(None),
 ) -> dict[str, bool]:
-    if x_telegram_bot_api_secret_token != settings.webhook_secret:
+    token = x_telegram_bot_api_secret_token
+    if not token or not hmac.compare_digest(token.encode(), settings.webhook_secret.encode()):
         raise HTTPException(status_code=403)
 
     update = Update.model_validate(await request.json(), context={"bot": bot})
