@@ -419,6 +419,20 @@ if (!/^[A-Za-z0-9_-]{32,256}$/.test(WEBHOOK_SECRET)) {
   throw new Error("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]");
 }
 
+// grammY compares the header with a plain !==; check it ourselves first.
+const sha256 = async (s: string): Promise<Uint8Array> =>
+  new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
+
+// Constant time: equal-length digests, XOR over every byte, no early exit.
+async function hasValidSecret(req: Request): Promise<boolean> {
+  const header = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
+  if (!header) return false;
+  const [a, b] = await Promise.all([sha256(header), sha256(WEBHOOK_SECRET)]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
+  return diff === 0;
+}
+
 bot.command("start", (ctx) => ctx.reply("Hello from Supabase Edge Functions"));
 
 bot.on("message:text", (ctx) => ctx.reply(`Echo: ${ctx.message.text}`));
@@ -429,6 +443,9 @@ const handleUpdate = webhookCallback(bot, "std/http", {
 
 serve(async (req) => {
   if (req.method === "POST") {
+    if (!(await hasValidSecret(req))) {
+      return new Response("Forbidden", { status: 403 });
+    }
     return handleUpdate(req);
   }
   return new Response("Method not allowed", { status: 405 });

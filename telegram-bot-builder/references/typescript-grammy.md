@@ -63,17 +63,46 @@ app.listen(3000, async () => {
 });
 ```
 
+### Webhook secret check (Workers, Edge, Deno)
+
+grammY compares the secret header with a plain `!==`. Serverless handlers below
+check it themselves, in constant time, before grammY sees the request:
+
+```typescript
+// webhook-secret.ts
+const sha256 = async (s: string): Promise<Uint8Array> =>
+  new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
+
+// Constant time: equal-length digests, XOR over every byte, no early exit.
+export async function hasValidSecret(req: Request, secret: string): Promise<boolean> {
+  const header = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
+  if (!header) return false;
+  const [a, b] = await Promise.all([sha256(header), sha256(secret)]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
+  return diff === 0;
+}
+```
+
 ### Bot with webhook (Cloudflare Workers)
 
 ```typescript
 import { Bot, webhookCallback } from "grammy";
+import { hasValidSecret } from "./webhook-secret";
 
 export default {
   async fetch(req: Request, env: Record<string, string>): Promise<Response> {
+    // Fail closed: no valid secret -> 500, never an unchecked webhook.
+    const secretToken = env.WEBHOOK_SECRET ?? "";
+    if (!/^[A-Za-z0-9_-]{32,256}$/.test(secretToken)) {
+      return new Response("WEBHOOK_SECRET is not configured", { status: 500 });
+    }
+    if (!(await hasValidSecret(req, secretToken))) {
+      return new Response("Forbidden", { status: 403 });
+    }
     const bot = new Bot(env.BOT_TOKEN);
     bot.command("start", (ctx) => ctx.reply("Hello from Workers!"));
-    // Shortened: in production pass a validated { secretToken } (security.md, "Fail closed").
-    return webhookCallback(bot, "cloudflare-mod")(req);
+    return webhookCallback(bot, "cloudflare-mod", { secretToken })(req);
   },
 };
 ```
@@ -588,20 +617,29 @@ bot.use(
 ```typescript
 // src/index.ts
 import { Bot, webhookCallback } from "grammy";
+import { hasValidSecret } from "./webhook-secret"; // section 1
 
 interface Env {
   BOT_TOKEN: string;
   BOT_INFO: string; // JSON from getMe(), avoids cold start call
+  WEBHOOK_SECRET: string;
 }
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
+    // Fail closed: no valid secret -> 500, never an unchecked webhook.
+    const secretToken = env.WEBHOOK_SECRET ?? "";
+    if (!/^[A-Za-z0-9_-]{32,256}$/.test(secretToken)) {
+      return new Response("WEBHOOK_SECRET is not configured", { status: 500 });
+    }
+    if (!(await hasValidSecret(req, secretToken))) {
+      return new Response("Forbidden", { status: 403 });
+    }
     const bot = new Bot(env.BOT_TOKEN, {
       botInfo: JSON.parse(env.BOT_INFO),
     });
     bot.command("start", (ctx) => ctx.reply("Hello from CF Workers!"));
-    // Shortened: in production pass a validated { secretToken } (security.md, "Fail closed").
-    return webhookCallback(bot, "cloudflare-mod")(req);
+    return webhookCallback(bot, "cloudflare-mod", { secretToken })(req);
   },
 };
 ```
@@ -611,14 +649,26 @@ export default {
 ```typescript
 // api/webhook.ts
 import { Bot, webhookCallback } from "grammy";
+import { hasValidSecret } from "../webhook-secret"; // section 1
+
+// Fail closed: no valid secret -> no start (see security.md).
+const secretToken = process.env.WEBHOOK_SECRET ?? "";
+if (!/^[A-Za-z0-9_-]{32,256}$/.test(secretToken)) {
+  throw new Error("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]");
+}
 
 const bot = new Bot(process.env.BOT_TOKEN!);
 bot.command("start", (ctx) => ctx.reply("Hello from Vercel!"));
+const handleUpdate = webhookCallback(bot, "std/http", { secretToken });
 
 export const config = { runtime: "edge" };
 
-// Shortened: in production pass a validated { secretToken } (security.md, "Fail closed").
-export default webhookCallback(bot, "std/http");
+export default async function handler(req: Request): Promise<Response> {
+  if (!(await hasValidSecret(req, secretToken))) {
+    return new Response("Forbidden", { status: 403 });
+  }
+  return handleUpdate(req);
+}
 ```
 
 ### Supabase Edge Function handler
@@ -626,15 +676,23 @@ export default webhookCallback(bot, "std/http");
 ```typescript
 // supabase/functions/telegram-bot/index.ts
 import { Bot, webhookCallback } from "grammy";
+import { hasValidSecret } from "../_shared/webhook-secret.ts"; // section 1
+
+// Fail closed: no valid secret -> no start (see security.md).
+const secretToken = Deno.env.get("WEBHOOK_SECRET") ?? "";
+if (!/^[A-Za-z0-9_-]{32,256}$/.test(secretToken)) {
+  throw new Error("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]");
+}
 
 const bot = new Bot(Deno.env.get("BOT_TOKEN")!);
 bot.command("start", (ctx) => ctx.reply("Hello from Supabase!"));
-
-// Shortened: in production pass a validated { secretToken } (security.md, "Fail closed").
-const handleUpdate = webhookCallback(bot, "std/http");
+const handleUpdate = webhookCallback(bot, "std/http", { secretToken });
 
 Deno.serve(async (req: Request) => {
   if (req.method === "POST") {
+    if (!(await hasValidSecret(req, secretToken))) {
+      return new Response("Forbidden", { status: 403 });
+    }
     return await handleUpdate(req);
   }
   return new Response("OK", { status: 200 });
