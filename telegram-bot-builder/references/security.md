@@ -80,6 +80,9 @@ if (!/^[A-Za-z0-9_-]{32,256}$/.test(WEBHOOK_SECRET)) {
 
 const sha256 = (s: string): Buffer => createHash("sha256").update(s).digest();
 
+const app = express();
+app.use(express.json());
+
 function isValidSecret(header: unknown): boolean {
   // Missing or repeated header is invalid; digests make lengths equal for timingSafeEqual.
   if (typeof header !== "string" || header.length === 0) return false;
@@ -100,6 +103,9 @@ app.post("/webhook", (req, res) => {
 With grammY's `webhookCallback(bot, adapter, { secretToken })` pass only a
 value that went through the same startup check: an `undefined` or `""`
 `secretToken` turns the built-in check off or makes an empty header valid.
+grammY compares the header with a plain string compare, not in constant time;
+with a 32+ char random secret this is acceptable, for a strict constant-time
+check use the Express pattern above in front of `bot.handleUpdate`.
 
 ### IP whitelist (optional, additional layer)
 

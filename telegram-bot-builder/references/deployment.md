@@ -329,6 +329,10 @@ forwards the header; the bot must still check it, fail closed
 (see [security.md](security.md), "Fail closed"):
 
 ```python
+import hmac
+import os
+import re
+
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 if not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", WEBHOOK_SECRET):
     raise RuntimeError("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]")
@@ -467,7 +471,7 @@ async def echo(message: types.Message) -> None:
     await message.reply(f"Echo: {message.text}")
 
 async def handler(event: dict, context) -> dict:
-    secret = event.get("headers", {}).get("X-Telegram-Bot-Api-Secret-Token")
+    secret = (event.get("headers") or {}).get("X-Telegram-Bot-Api-Secret-Token")
     if not secret or not hmac.compare_digest(secret.encode(), WEBHOOK_SECRET.encode()):
         return {"statusCode": 403, "body": "Forbidden"}
 
