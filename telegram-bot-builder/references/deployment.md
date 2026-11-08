@@ -62,12 +62,12 @@ LOG_LEVEL=INFO
 ADMIN_IDS=111111111
 ```
 
-Commands:
+Commands (as root on the server: they change system services):
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now my-bot
-sudo systemctl restart my-bot
+systemctl daemon-reload
+systemctl enable --now my-bot
+systemctl restart my-bot
 journalctl -u my-bot -f
 journalctl -u my-bot --since "1 hour ago"
 ```
@@ -158,7 +158,7 @@ WORKDIR /app
 RUN groupadd -r bot && useradd -r -g bot bot
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt --no-cache-dir
 
 COPY bot/ bot/
 
@@ -288,7 +288,6 @@ server {
 
     location /webhook/telegram {
         proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -325,15 +324,23 @@ bot.example.com {
 
 Caddy handles TLS automatically via Let's Encrypt. No certificate config needed.
 
-Secret token verification inside bot (Python example):
+Secret token verification inside bot (Python example). The proxy only
+forwards the header; the bot must still check it, fail closed
+(see [security.md](security.md), "Fail closed"):
 
 ```python
-WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]
+import hmac
+import os
+import re
+
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
+if not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", WEBHOOK_SECRET):
+    raise RuntimeError("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]")
 
 @app.post("/webhook/telegram")
 async def webhook(request: Request):
     token = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
-    if not hmac.compare_digest(token or "", WEBHOOK_SECRET):
+    if not token or not hmac.compare_digest(token.encode(), WEBHOOK_SECRET.encode()):
         raise HTTPException(status_code=403, detail="Invalid secret token")
     update = Update.model_validate(await request.json())
     await dp.feed_update(bot, update)
@@ -370,15 +377,18 @@ interface Env {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // Fail closed: never hand grammY an unset or empty secretToken.
+    const secretToken = env.WEBHOOK_SECRET ?? "";
+    if (!/^[A-Za-z0-9_-]{32,256}$/.test(secretToken)) {
+      return new Response("WEBHOOK_SECRET is not configured", { status: 500 });
+    }
     const bot = new Bot(env.BOT_TOKEN);
 
     bot.command("start", (ctx) => ctx.reply("Hello from Cloudflare Workers"));
 
     bot.on("message:text", (ctx) => ctx.reply(`Echo: ${ctx.message.text}`));
 
-    const handleUpdate = webhookCallback(bot, "cloudflare-mod", {
-      secretToken: env.WEBHOOK_SECRET,
-    });
+    const handleUpdate = webhookCallback(bot, "cloudflare-mod", { secretToken });
 
     return handleUpdate(request);
   },
@@ -403,16 +413,39 @@ import { Bot, webhookCallback } from "https://deno.land/x/grammy@v1.21.1/mod.ts"
 
 const bot = new Bot(Deno.env.get("BOT_TOKEN")!);
 
+// Fail closed: never hand grammY an unset or empty secretToken.
+const WEBHOOK_SECRET = Deno.env.get("WEBHOOK_SECRET") ?? "";
+if (!/^[A-Za-z0-9_-]{32,256}$/.test(WEBHOOK_SECRET)) {
+  throw new Error("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]");
+}
+
+// grammY compares the header with a plain !==; check it ourselves first.
+const sha256 = async (s: string): Promise<Uint8Array> =>
+  new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
+
+// Constant time: equal-length digests, XOR over every byte, no early exit.
+async function hasValidSecret(req: Request): Promise<boolean> {
+  const header = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
+  if (!header) return false;
+  const [a, b] = await Promise.all([sha256(header), sha256(WEBHOOK_SECRET)]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
+  return diff === 0;
+}
+
 bot.command("start", (ctx) => ctx.reply("Hello from Supabase Edge Functions"));
 
 bot.on("message:text", (ctx) => ctx.reply(`Echo: ${ctx.message.text}`));
 
 const handleUpdate = webhookCallback(bot, "std/http", {
-  secretToken: Deno.env.get("WEBHOOK_SECRET"),
+  secretToken: WEBHOOK_SECRET,
 });
 
 serve(async (req) => {
   if (req.method === "POST") {
+    if (!(await hasValidSecret(req))) {
+      return new Response("Forbidden", { status: 403 });
+    }
     return handleUpdate(req);
   }
   return new Response("Method not allowed", { status: 405 });
@@ -422,7 +455,7 @@ serve(async (req) => {
 Deploy:
 
 ```bash
-supabase secrets set BOT_TOKEN=123456:ABC-DEF WEBHOOK_SECRET=mysecret
+supabase secrets set BOT_TOKEN="<bot-token>" WEBHOOK_SECRET="<webhook-secret-32+-chars>"
 supabase functions deploy telegram-bot --no-verify-jwt
 ```
 
@@ -433,12 +466,21 @@ Webhook URL: `https://<project-ref>.supabase.co/functions/v1/telegram-bot`
 `handler.py`:
 
 ```python
+import hmac
 import json
 import os
+import re
 
 from aiogram import Bot, Dispatcher, types
 
-bot = Bot(token=os.environ["BOT_TOKEN"])
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN is not set")
+if not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", WEBHOOK_SECRET):
+    raise RuntimeError("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]")
+
+bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 @dp.message()
@@ -446,8 +488,8 @@ async def echo(message: types.Message) -> None:
     await message.reply(f"Echo: {message.text}")
 
 async def handler(event: dict, context) -> dict:
-    secret = event.get("headers", {}).get("X-Telegram-Bot-Api-Secret-Token", "")
-    if secret != os.environ["WEBHOOK_SECRET"]:
+    secret = (event.get("headers") or {}).get("X-Telegram-Bot-Api-Secret-Token")
+    if not secret or not hmac.compare_digest(secret.encode(), WEBHOOK_SECRET.encode()):
         return {"statusCode": 403, "body": "Forbidden"}
 
     body = json.loads(event["body"])
@@ -485,7 +527,7 @@ yc serverless function version create \
   --memory 128m \
   --execution-timeout 10s \
   --source-path ./src \
-  --environment BOT_TOKEN=123456:ABC-DEF,WEBHOOK_SECRET=mysecret
+  --environment "BOT_TOKEN=<bot-token>,WEBHOOK_SECRET=<webhook-secret-32+-chars>"
 ```
 
 ### Vercel
@@ -495,9 +537,16 @@ yc serverless function version create \
 ```typescript
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { Bot, webhookCallback } from "grammy";
-import crypto from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 const bot = new Bot(process.env.BOT_TOKEN!);
+
+// Fail closed: refuse to load without a real secret.
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? "";
+if (!/^[A-Za-z0-9_-]{32,256}$/.test(WEBHOOK_SECRET)) {
+  throw new Error("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]");
+}
+const sha256 = (s: string): Buffer => createHash("sha256").update(s).digest();
 
 bot.command("start", (ctx) => ctx.reply("Hello from Vercel"));
 bot.on("message:text", (ctx) => ctx.reply(`Echo: ${ctx.message.text}`));
@@ -509,9 +558,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const secret = req.headers["x-telegram-bot-api-secret-token"] as string;
-  const expected = process.env.WEBHOOK_SECRET!;
-  if (!secret || !crypto.timingSafeEqual(Buffer.from(secret), Buffer.from(expected))) {
+  const secret = req.headers["x-telegram-bot-api-secret-token"];
+  // Digests have equal length, so timingSafeEqual never throws on a longer header.
+  if (typeof secret !== "string" || !secret ||
+      !timingSafeEqual(sha256(secret), sha256(WEBHOOK_SECRET))) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
@@ -545,8 +595,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 2. Set environment variables in Railway dashboard or CLI:
 
 ```bash
-railway variables set BOT_TOKEN=123456:ABC-DEF
-railway variables set WEBHOOK_SECRET=mysecret
+railway variables set BOT_TOKEN="<bot-token>"
+railway variables set WEBHOOK_SECRET="<webhook-secret-32+-chars>"
 railway up
 ```
 
@@ -595,7 +645,7 @@ Commands:
 
 ```bash
 fly launch
-fly secrets set BOT_TOKEN=123456:ABC-DEF WEBHOOK_SECRET=mysecret
+fly secrets set BOT_TOKEN="<bot-token>" WEBHOOK_SECRET="<webhook-secret-32+-chars>"
 fly volumes create botdata --region ams --size 1
 fly deploy
 fly logs
@@ -625,12 +675,25 @@ For webhook bots -- use Web Service with a `/health` endpoint for Render health 
 
 ```python
 import os
+import re
+
 from aiogram import Bot
 
-bot = Bot(token=os.environ["BOT_TOKEN"])
 
-WEBHOOK_URL = os.environ["WEBHOOK_URL"]       # https://bot.example.com/webhook/telegram
-WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]  # random string, 1-256 chars
+def require_env(name: str) -> str:
+    """Return a required env var; fail at startup if it is missing or empty."""
+    value = os.environ.get(name, "")
+    if not value:
+        raise RuntimeError(f"{name} is not set")
+    return value
+
+
+bot = Bot(token=require_env("BOT_TOKEN"))
+
+WEBHOOK_URL = require_env("WEBHOOK_URL")        # https://bot.example.com/webhook/telegram
+WEBHOOK_SECRET = require_env("WEBHOOK_SECRET")  # Telegram: 1-256 chars [A-Za-z0-9_-]
+if not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", WEBHOOK_SECRET):
+    raise RuntimeError("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]")
 
 # Set
 await bot.set_webhook(
@@ -654,7 +717,10 @@ await bot.delete_webhook(drop_pending_updates=True)
 
 ```typescript
 const WEBHOOK_URL = process.env.WEBHOOK_URL!;
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET!;
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? "";
+if (!/^[A-Za-z0-9_-]{32,256}$/.test(WEBHOOK_SECRET)) {
+  throw new Error("WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]");
+}
 
 // Set
 await bot.api.setWebhook(WEBHOOK_URL, {
@@ -675,8 +741,9 @@ await bot.api.deleteWebhook({ drop_pending_updates: true });
 processing update types the bot does not handle.
 
 `secret_token` -- Telegram sends this header with every update.
-Verify it server-side. Without it, anyone who knows the webhook URL
-can send fake updates.
+Verify it server-side and fail closed: refuse to start without the secret,
+reject a request without the header. Without it, anyone who knows the
+webhook URL can send fake updates.
 
 ---
 
@@ -690,7 +757,7 @@ BOT_TOKEN=123456:ABC-DEF
 
 # Webhook mode (skip for polling)
 WEBHOOK_URL=https://bot.example.com/webhook/telegram
-WEBHOOK_SECRET=random-string-up-to-256-chars
+WEBHOOK_SECRET=<32-256 random chars of A-Z a-z 0-9 _ ->
 WEBHOOK_PORT=8080
 
 # Database (optional)

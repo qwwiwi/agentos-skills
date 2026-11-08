@@ -13,24 +13,52 @@ Webhook validation, rate limiting, input sanitization, WebApp auth, anti-spam.
 
 ## 1. Webhook Validation
 
+### Fail closed: why the check refuses to start
+
+A naive `header != os.getenv("SECRET")` is fail-open: if the env var is
+not set and the request has no header, both sides are `None`/`undefined`,
+the comparison says "equal" and anyone who knows the URL can post fake
+updates. Same with an empty default (`?? ""`) and an empty header. Rules:
+
+1. Refuse to start if the secret is missing, short or not in Telegram's
+   charset (`A-Z a-z 0-9 _ -`, up to 256 chars; we require at least 32).
+2. Reject a request without the header (403), never treat "absent" as a value.
+3. Compare in constant time: `hmac.compare_digest` on bytes (Python),
+   `crypto.timingSafeEqual` on equal-length buffers (Node; it throws on
+   different lengths, so compare SHA-256 digests).
+
+Generate a secret once: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`.
+
 ### Secret token setup and validation (Python / FastAPI)
 
 ```python
+import hmac
 import os
-from fastapi import FastAPI, Request, HTTPException
+import re
+
+from fastapi import FastAPI, HTTPException, Request
 
 app = FastAPI()
 
-WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET")
+# Telegram allows 1-256 chars of [A-Za-z0-9_-]; require 32+ and fail closed.
+WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+if not re.fullmatch(r"[A-Za-z0-9_-]{32,256}", WEBHOOK_SECRET):
+    raise RuntimeError("TELEGRAM_WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]")
 # set during setWebhook:
 # await bot.set_webhook(url=URL, secret_token=WEBHOOK_SECRET)
+
+
+def is_valid_secret(header: str | None) -> bool:
+    """Constant-time check of X-Telegram-Bot-Api-Secret-Token; missing header is invalid."""
+    if not header:
+        return False
+    return hmac.compare_digest(header.encode(), WEBHOOK_SECRET.encode())
 
 
 @app.post("/webhook")
 async def webhook(request: Request) -> dict:
     """Receive Telegram updates with secret token validation."""
-    token = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
-    if token != WEBHOOK_SECRET:
+    if not is_valid_secret(request.headers.get("X-Telegram-Bot-Api-Secret-Token")):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     update = await request.json()
@@ -42,12 +70,27 @@ async def webhook(request: Request) -> dict:
 
 ```typescript
 import express from "express";
+import { createHash, timingSafeEqual } from "node:crypto";
 
-const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET!;
+// Telegram allows 1-256 chars of [A-Za-z0-9_-]; require 32+ and fail closed.
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? "";
+if (!/^[A-Za-z0-9_-]{32,256}$/.test(WEBHOOK_SECRET)) {
+  throw new Error("TELEGRAM_WEBHOOK_SECRET must be 32-256 chars of [A-Za-z0-9_-]");
+}
+
+const sha256 = (s: string): Buffer => createHash("sha256").update(s).digest();
+
+const app = express();
+app.use(express.json());
+
+function isValidSecret(header: unknown): boolean {
+  // Missing or repeated header is invalid; digests make lengths equal for timingSafeEqual.
+  if (typeof header !== "string" || header.length === 0) return false;
+  return timingSafeEqual(sha256(header), sha256(WEBHOOK_SECRET));
+}
 
 app.post("/webhook", (req, res) => {
-  const token = req.headers["x-telegram-bot-api-secret-token"];
-  if (token !== WEBHOOK_SECRET) {
+  if (!isValidSecret(req.headers["x-telegram-bot-api-secret-token"])) {
     res.status(403).send("Forbidden");
     return;
   }
@@ -56,6 +99,13 @@ app.post("/webhook", (req, res) => {
   res.sendStatus(200);
 });
 ```
+
+With grammY's `webhookCallback(bot, adapter, { secretToken })` pass only a
+value that went through the same startup check: an `undefined` or `""`
+`secretToken` turns the built-in check off or makes an empty header valid.
+grammY compares the header with a plain string compare, not in constant time;
+with a 32+ char random secret this is acceptable, for a strict constant-time
+check use the Express pattern above in front of `bot.handleUpdate`.
 
 ### IP whitelist (optional, additional layer)
 
@@ -472,6 +522,7 @@ if not TOKEN:
 ### pydantic-settings pattern (recommended)
 
 ```python
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -479,7 +530,8 @@ class BotConfig(BaseSettings):
     """Bot configuration from environment variables."""
 
     bot_token: str
-    webhook_secret: str
+    # required, no default: startup fails if missing/short (fail closed)
+    webhook_secret: str = Field(min_length=32, max_length=256, pattern=r"^[A-Za-z0-9_-]+$")
     redis_url: str = "redis://localhost:6379/0"
     admin_ids: list[int] = []
 
